@@ -1,0 +1,25 @@
+---
+import '../styles/global.css';
+const { title = 'Wall of Fame', description = 'Meet the people behind the work.' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const home = base.endsWith('/') ? base : base + '/';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot name="header" />
+    <main class="container">
+      <slot />
+    </main>
+    <script define:vars={{ home }}>
+      // expose base-aware home link for islands if needed
+      window.__WOF_HOME__ = home;
+    </script>
+  </body>
+</html>

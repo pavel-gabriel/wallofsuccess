@@ -1,0 +1,15 @@
+---
+import Base from '../layouts/Base.astro';
+import SubmitForm from '../components/SubmitForm.jsx';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Submit a testimonial" description="Share your project story.">
+  <header class="site-header" slot="header">
+    <h1>🏆 Wall of Fame</h1>
+    <nav class="nav-links">
+      <a href={`${base}/`}>← Back to the Wall</a>
+    </nav>
+  </header>
+
+  <SubmitForm client:load />
+</Base>
