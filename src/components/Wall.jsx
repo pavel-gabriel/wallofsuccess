@@ -16,9 +16,13 @@ export default function Wall() {
   const [options, setOptions] = useState([]);
   const [settings, setSettings] = useState({});
   const [active, setActive] = useState({}); // { category: Set(optionId) }
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [openGroup, setOpenGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const PAGE_SIZE = 24;
 
   useEffect(() => {
     if (!isConfigured) {
@@ -37,7 +41,18 @@ export default function Wall() {
 
   const filtered = useMemo(() => applyFilters(testimonials, active), [testimonials, active]);
   const groups = useMemo(() => groupByPerson(filtered), [filtered]);
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter((g) => (g.person?.name || '').toLowerCase().includes(q));
+  }, [groups, query]);
+  const visible = searched.slice(0, page * PAGE_SIZE);
   const moderationOn = settings.comment_moderation === 'on' || settings.comment_moderation === true;
+
+  // Reset to the first page whenever the result set changes.
+  useEffect(() => {
+    setPage(1);
+  }, [active, query]);
 
   function toggle(cat, id) {
     setActive((prev) => {
@@ -73,19 +88,30 @@ export default function Wall() {
         active={active}
         onToggle={toggle}
         onClear={clear}
-        resultCount={groups.length}
+        resultCount={searched.length}
+        query={query}
+        onQuery={setQuery}
       />
 
-      {groups.length === 0 ? (
+      {searched.length === 0 ? (
         <div class="empty-state">
           <p>No testimonials match your filters yet.</p>
         </div>
       ) : (
-        <div class="wall">
-          {groups.map((g) => (
-            <StickyNote key={g.person.id} group={g} onOpen={setOpenGroup} />
-          ))}
-        </div>
+        <>
+          <div class="wall">
+            {visible.map((g) => (
+              <StickyNote key={g.person.id} group={g} onOpen={setOpenGroup} />
+            ))}
+          </div>
+          {visible.length < searched.length && (
+            <div class="load-more">
+              <button class="btn btn-secondary" onClick={() => setPage((p) => p + 1)}>
+                Load more ({searched.length - visible.length} more)
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {openGroup && (

@@ -100,6 +100,20 @@ Response: `{ "ok": true, "sent": true, "message": "...", "link": "https://…/su
 The recipient gets an email with the link and submits without any account. The admin dashboard's
 **Request testimonial** tab calls the same endpoint (authenticated by the admin's login instead of the API key).
 
+### Generate a link without sending an email
+
+Pass `"send": false` to skip the email and just get back a one-time link to share yourself
+(e.g. post it in Slack). `email` is optional in this mode:
+
+```bash
+curl -X POST "https://YOUR-ref.supabase.co/functions/v1/request-testimonial" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR-REQUEST_API_KEY" \
+  -d '{ "name": "Ada Lovelace", "project": "Project Helios", "send": false }'
+```
+Response: `{ "ok": true, "sent": false, "message": "Link generated…", "link": "https://…/submit?token=…" }`.
+In the admin dashboard this is the **Generate link** button, which shows the link with a copy button.
+
 ---
 
 ## Project structure
