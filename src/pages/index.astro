@@ -1,16 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
 import Wall from '../components/Wall.jsx';
-const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <Base title="Wall of Fame" description="Meet the people behind the work — successes, projects, and standout contributions.">
   <header class="site-header" slot="header">
     <h1>🏆 Wall of Fame</h1>
     <p>Meet the people behind the work. Click a note to read the full story.</p>
-    <nav class="nav-links">
-      <a href={`${base}/`}>The Wall</a>
-      <a href={`${base}/admin`}>Admin</a>
-    </nav>
   </header>
 
   <Wall client:load />

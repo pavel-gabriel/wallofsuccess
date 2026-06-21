@@ -89,8 +89,16 @@ Deno.serve(async (req) => {
   const name = String(payload.name || '').trim().slice(0, 120);
   const email = String(payload.email || '').trim().slice(0, 200);
   const project = String(payload.project || '').trim().slice(0, 160);
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return json({ error: 'A valid email is required.' }, 400);
+  // `send` (default true) emails the link. Pass `send: false` to only create the
+  // one-time link and return it — used by the admin "Generate link" button and
+  // by external apps that want to deliver the link themselves.
+  const shouldSend = payload.send !== false;
+  const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  if (shouldSend && !emailValid) {
+    return json({ error: 'A valid email is required to send an invitation.' }, 400);
+  }
+  if (email && !emailValid) {
+    return json({ error: 'The email address is not valid.' }, 400);
   }
   if (!PUBLIC_SITE_URL) {
     return json({ error: 'PUBLIC_SITE_URL is not configured on the function.' }, 500);
@@ -105,7 +113,7 @@ Deno.serve(async (req) => {
       .insert({
         token,
         person_name: name,
-        person_email: email,
+        person_email: email || null,
         project_name: project,
         status: 'sent',
         expires_at: expires,
@@ -115,16 +123,21 @@ Deno.serve(async (req) => {
     if (ins.error) throw ins.error;
 
     const link = `${PUBLIC_SITE_URL}/submit?token=${token}`;
-    const { sent } = await sendEmail(email, name, link);
+    let sent = false;
+    if (shouldSend) {
+      ({ sent } = await sendEmail(email, name, link));
+    }
 
     return json({
       ok: true,
       sent,
-      message: sent
-        ? `Invitation emailed to ${email}.`
-        : `Request created, but no email provider is configured. Share this link: ${link}`,
       // link is returned only to the authorized caller (admin/external app)
       link,
+      message: sent
+        ? `Invitation emailed to ${email}.`
+        : shouldSend
+          ? `Request created, but no email provider is configured. Share this link: ${link}`
+          : `Link generated${name ? ` for ${name}` : ''}. Copy it and share: ${link}`,
     });
   } catch (e) {
     console.error('request-testimonial error', e);
