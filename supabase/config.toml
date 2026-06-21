@@ -1,0 +1,11 @@
+# Supabase project config (used by the Supabase CLI).
+# Set project_id to your project ref with: supabase link --project-ref <ref>
+project_id = "wallofsuccess"
+
+[functions.submit-testimonial]
+# Public: token-authenticated, no Supabase JWT required.
+verify_jwt = false
+
+[functions.request-testimonial]
+# Auth handled inside the function (x-api-key OR admin JWT).
+verify_jwt = false
