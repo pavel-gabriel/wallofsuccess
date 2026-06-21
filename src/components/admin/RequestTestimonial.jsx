@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { supabase } from '../../lib/supabase.js';
+import { readFunctionError } from '../../lib/functions.js';
 
 // Admin-facing form that triggers the `request-testimonial` Edge Function.
 // supabase.functions.invoke attaches the logged-in admin's JWT, which the
@@ -26,7 +27,7 @@ export default function RequestTestimonial() {
       setEmail('');
       setProject('');
     } catch (e) {
-      setResult({ ok: false, message: e.message || 'Could not send invitation.' });
+      setResult({ ok: false, message: await readFunctionError(e, 'Could not send invitation.') });
     } finally {
       setBusy(false);
     }
