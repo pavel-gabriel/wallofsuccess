@@ -257,10 +257,16 @@ a:hover { color: var(--brand-press); }
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 1.5rem 1.25rem;
 }
+/* Notes use ONLY Endava palette colours: each card's --note-accent is a brand
+   hex (primary Red Orange + the data-viz set), the background is a light tint of
+   that accent mixed with Pure White, and the pin is the solid accent. */
 .note {
+  --note-accent: var(--brand);
   position: relative;
-  background: #fdf6b2;
-  border-radius: 4px;
+  background: #fff; /* fallback */
+  background: color-mix(in srgb, var(--note-accent) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--note-accent) 26%, #fff);
+  border-radius: var(--radius);
   padding: 1.1rem 1rem 1.25rem;
   box-shadow: var(--shadow);
   cursor: pointer;
@@ -271,7 +277,7 @@ a:hover { color: var(--brand-press); }
 }
 .note:hover {
   transform: translateY(-4px) rotate(0deg) scale(1.02) !important;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 16px 32px rgba(25, 43, 55, 0.22);
   z-index: 2;
 }
 .note::before {
@@ -283,15 +289,15 @@ a:hover { color: var(--brand-press); }
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #c0392b;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  background: var(--note-accent);
+  box-shadow: 0 2px 3px rgba(25, 43, 55, 0.35);
 }
-.note-yellow { background: #fdf6b2; }
-.note-pink { background: #ffd6e0; }
-.note-green { background: #c8f7d4; }
-.note-blue { background: #cfe8ff; }
-.note-orange { background: #ffe0c2; }
-.note-purple { background: #e7d6ff; }
+.note-1 { --note-accent: #ff5640; } /* Red Orange (primary) */
+.note-2 { --note-accent: #5899c4; } /* Data Blue */
+.note-3 { --note-accent: #30a661; } /* Data Green */
+.note-4 { --note-accent: #cf820e; } /* Data Yellow */
+.note-5 { --note-accent: #8684bf; } /* Data Violet */
+.note-6 { --note-accent: #3e9c8f; } /* Data Teal */
 
 .note-head { display: flex; gap: 0.65rem; align-items: center; margin-bottom: 0.6rem; }
 .avatar {
@@ -304,7 +310,7 @@ a:hover { color: var(--brand-press); }
 /* Image style (visual/images): natural, rich in contrast. */
 img.avatar { filter: contrast(1.05) saturate(1.02); }
 .note-name { font-weight: 700; font-size: 0.98rem; line-height: 1.15; }
-.note-title { font-size: 0.78rem; color: #4b5563; }
+.note-title { font-size: 0.78rem; color: var(--sb-70); }
 .note-summary {
   font-size: 0.9rem;
   line-height: 1.4;
