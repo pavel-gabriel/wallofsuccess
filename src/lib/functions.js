@@ -1,15 +1,19 @@
-import { api } from './api.js';
-
-// Calls the backend's "function" endpoints (formerly Supabase Edge Functions):
-//   • submit-testimonial  -> public token flow (validate / submit)
-//   • request-testimonial -> admin-or-apikey invite/link generation
-// The stored admin JWT is attached automatically when present (it's required
-// for request-testimonial, ignored for the public submit flow).
-export async function callFunction(name, body) {
-  return api(`/fn/${name}`, { method: 'POST', body, auth: true });
-}
+// "Function" calls (submit-testimonial / request-testimonial), delegated to the
+// build-selected backend. The helpers below are backend-agnostic.
+export { callFunction } from '@backend';
 
 export async function readFunctionError(error, fallback = 'Request failed.') {
+  // Supabase FunctionsHttpError hides the reason in error.context (a Response);
+  // the API backend throws Error(message) directly. Handle both.
+  try {
+    const ctx = error?.context;
+    if (ctx && typeof ctx.clone === 'function') {
+      const body = await ctx.clone().json().catch(() => null);
+      if (body?.error) return body.error;
+    }
+  } catch {
+    /* fall through */
+  }
   return (error && error.message) || fallback;
 }
 

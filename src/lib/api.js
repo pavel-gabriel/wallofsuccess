@@ -4,10 +4,6 @@
 
 const API = '/api';
 
-// The backend always ships alongside the frontend, so it's always "configured".
-// (Kept for compatibility with components that gate on this.)
-export const isConfigured = true;
-
 // Base path of the deployed site. In the container we serve at '/', but this
 // keeps GitHub-Pages-style subpaths working too.
 export const BASE = import.meta.env.BASE_URL || '/';

@@ -31,6 +31,8 @@ jobs:
 
       - name: Build site
         env:
+          # GitHub Pages demo builds in Supabase mode (base /wallofsuccess).
+          PUBLIC_BACKEND: supabase
           # Public, build-time values. Add these as repository
           # Settings -> Secrets and variables -> Actions -> Variables (or Secrets).
           PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}

@@ -1,51 +1,15 @@
-import { api } from './api.js';
-
-// Public reads + comment posting. The backend returns testimonials already
-// joined with their person and tags (see server/src/index.js).
-
-export async function fetchApprovedTestimonials() {
-  const rows = await api('/testimonials');
-  return (rows || []).map(normalizeTestimonial);
-}
-
-export async function fetchAllTestimonials() {
-  const rows = await api('/admin/testimonials', { auth: true });
-  return (rows || []).map(normalizeTestimonial);
-}
-
-export async function fetchFilterOptions() {
-  return (await api('/filter-options')) || [];
-}
-
-export async function fetchSettings() {
-  return (await api('/settings')) || {};
-}
-
-export async function fetchComments(testimonialId) {
-  return (await api(`/testimonials/${testimonialId}/comments`)) || [];
-}
-
-export async function postComment(testimonialId, { author_name, body }) {
-  return api('/comments', {
-    method: 'POST',
-    body: { testimonial_id: testimonialId, author_name, body },
-  });
-}
-
-export function normalizeTestimonial(t) {
-  return {
-    id: t.id,
-    personId: t.person_id,
-    projectName: t.project_name,
-    summary: t.summary,
-    body: t.body,
-    status: t.status,
-    createdAt: t.created_at,
-    approvedAt: t.approved_at,
-    person: t.person || { id: t.person_id, name: 'Unknown', title: '', photo_url: null },
-    tags: t.tags || [],
-  };
-}
+// Public data access. Backend-specific calls come from the build-selected
+// backend (@backend = src/lib/backend/{api,supabase}.js); the grouping/filtering
+// helpers below are pure and shared by both.
+export {
+  isConfigured,
+  fetchApprovedTestimonials,
+  fetchAllTestimonials,
+  fetchFilterOptions,
+  fetchSettings,
+  fetchComments,
+  postComment,
+} from '@backend';
 
 // Group testimonials by person so a person with multiple entries renders as one
 // sticky note that opens to tabs.

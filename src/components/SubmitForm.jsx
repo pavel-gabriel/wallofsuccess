@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured } from '../lib/api.js';
-import { fetchFilterOptions } from '../lib/data.js';
+import { isConfigured, fetchFilterOptions } from '../lib/data.js';
 import { callFunction, fileToDataUrl } from '../lib/functions.js';
 
 const CATEGORY_LABELS = {

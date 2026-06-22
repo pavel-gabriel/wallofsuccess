@@ -15,13 +15,19 @@ clients can quickly shortlist people for a future team.
 Astro (GitHub Pages) ──anon key + RLS──► Supabase (Postgres / Auth / Storage / Edge Functions) ──► Resend
 ```
 
-> **Two ways to run this**
-> 1. **Managed (Supabase)** — original setup, documented below.
-> 2. **Self-hosted on Kubernetes (EKS/AKS)** — a Node/Express API server replaces
->    Supabase (Auth + Storage + Edge Functions + RLS) and talks to a plain
->    **Postgres**, packaged as a **Helm chart** with an **Ingress**. See
->    [Kubernetes deployment](#kubernetes-deployment-eksaks) — this is the path the
->    `Dockerfile`, `server/`, and `charts/` directories implement.
+> **Two ways to run this — same codebase, switched at build time by `PUBLIC_BACKEND`:**
+> 1. **Managed (Supabase)** — `PUBLIC_BACKEND=supabase`. Talks directly to
+>    Supabase (anon key + RLS), base path `/wallofsuccess`. This is what GitHub
+>    Pages builds (set in `.github/workflows/deploy.yml`).
+> 2. **Self-hosted on Kubernetes (EKS/AKS)** — `PUBLIC_BACKEND=api` (default). A
+>    Node/Express API server replaces Supabase (Auth + Storage + Edge Functions +
+>    RLS) and talks to a plain **Postgres**, packaged as a **Helm chart** with an
+>    **Ingress**. The `Dockerfile` sets this. See
+>    [Kubernetes deployment](#kubernetes-deployment-eksaks).
+>
+> The two implementations live in `src/lib/backend/{supabase,api}.js`; the rest of
+> the app imports a build-time alias `@backend`, so only the selected one is
+> bundled (no Supabase client in the k8s image, no `/api` calls on Pages).
 
 ---
 
