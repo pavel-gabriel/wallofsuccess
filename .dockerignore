@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.github
+charts
+server/node_modules
+supabase
+*.md
+.astro

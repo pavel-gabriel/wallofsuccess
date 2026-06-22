@@ -1,0 +1,21 @@
+{
+  "name": "wallofsuccess-server",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Wall of Fame API + static host (Postgres-backed, replaces Supabase)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node src/migrate.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "@azure/storage-blob": "^12.26.0",
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1"
+  }
+}

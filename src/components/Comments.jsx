@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { supabase } from '../lib/supabase.js';
-import { fetchComments } from '../lib/data.js';
+import { fetchComments, postComment } from '../lib/data.js';
 import { formatDate } from '../lib/util.js';
 
 export default function Comments({ testimonialId, moderationOn }) {
@@ -24,27 +23,22 @@ export default function Comments({ testimonialId, moderationOn }) {
 
   async function submit(e) {
     e.preventDefault();
-    if (!supabase || !body.trim() || !name.trim()) return;
+    if (!body.trim() || !name.trim()) return;
     setStatus('sending');
-    // Insert; default status is 'visible' unless moderation is on, in which case
-    // RLS/trigger stores it as 'pending' and it won't appear until approved.
-    const { error } = await supabase.from('comments').insert({
-      testimonial_id: testimonialId,
-      author_name: name.trim().slice(0, 80),
-      body: body.trim().slice(0, 2000),
-    });
-    if (error) {
+    // The server's trigger sets status to 'visible' unless moderation is on, in
+    // which case it's stored 'pending' and won't appear until approved.
+    try {
+      const created = await postComment(testimonialId, {
+        author_name: name.trim().slice(0, 80),
+        body: body.trim().slice(0, 2000),
+      });
+      setStatus('ok');
+      setBody('');
+      if (created && created.status === 'visible') {
+        setComments((prev) => [...prev, created]);
+      }
+    } catch {
       setStatus('error');
-      return;
-    }
-    setStatus('ok');
-    setBody('');
-    if (!moderationOn) {
-      // optimistic append
-      setComments((prev) => [
-        ...prev,
-        { id: `temp-${Date.now()}`, author_name: name.trim(), body: body.trim(), created_at: new Date().toISOString() },
-      ]);
     }
   }
 

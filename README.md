@@ -15,6 +15,128 @@ clients can quickly shortlist people for a future team.
 Astro (GitHub Pages) ──anon key + RLS──► Supabase (Postgres / Auth / Storage / Edge Functions) ──► Resend
 ```
 
+> **Two ways to run this**
+> 1. **Managed (Supabase)** — original setup, documented below.
+> 2. **Self-hosted on Kubernetes (EKS/AKS)** — a Node/Express API server replaces
+>    Supabase (Auth + Storage + Edge Functions + RLS) and talks to a plain
+>    **Postgres**, packaged as a **Helm chart** with an **Ingress**. See
+>    [Kubernetes deployment](#kubernetes-deployment-eksaks) — this is the path the
+>    `Dockerfile`, `server/`, and `charts/` directories implement.
+
+---
+
+## Kubernetes deployment (EKS/AKS)
+
+In this mode the same Astro frontend is served by our own API server
+(`server/`, Node + Express + `pg`), which provides everything Supabase did:
+
+| Supabase feature | Replacement |
+| --- | --- |
+| Postgres + RLS | Plain Postgres + **server-enforced** auth (no RLS) |
+| Auth (admin login) | JWT issued by `/api/auth/login`, bcrypt password, seeded from env |
+| Storage (photos) | Files on a PersistentVolume, served at `/uploads` |
+| Edge Functions | `/api/fn/submit-testimonial` and `/api/fn/request-testimonial` |
+| Resend email | Optional SMTP (`nodemailer`); unset = "Generate link" still works |
+
+**Architecture in-cluster**
+
+```
+        Ingress ──► web Service ──► web Deployment (pod: initContainer "migrate" + "server")
+                                          │  serves /  /admin  /submit  /api  /uploads
+                                          ▼
+                                   Postgres Deployment (+ PVC)
+```
+
+The Postgres lives in its own pod with a PVC. The web pod runs **two containers**:
+an init container that applies the schema/seeds the admin, then the server
+container. (If you specifically want Postgres co-located as a 2-container pod
+instead, say so and I'll switch it to a sidecar layout.)
+
+### 1. Build & push the image
+
+```bash
+docker build -t ghcr.io/pavel-gabriel/wallofsuccess:latest .
+docker push ghcr.io/pavel-gabriel/wallofsuccess:latest
+```
+
+### 2. Install with Helm
+
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set image.repository=ghcr.io/pavel-gabriel/wallofsuccess \
+  --set image.tag=latest \
+  --set ingress.host=wall.example.com \
+  --set app.publicSiteUrl=https://wall.example.com \
+  --set app.adminEmail=you@company.com \
+  --set app.adminPassword="$(openssl rand -hex 16)" \
+  --set app.jwtSecret="$(openssl rand -hex 32)" \
+  --set app.requestApiKey="$(openssl rand -hex 24)" \
+  --set postgres.password="$(openssl rand -hex 16)"
+```
+
+Point DNS for `ingress.host` at your ingress controller, set `app.publicSiteUrl`
+to the same host (it builds the `/submit?token=…` links), and you're live. For
+TLS, enable `ingress.tls.enabled` with cert-manager annotations.
+
+Optional email: `--set app.smtp.host=…` (plus port/user/password/from). Leave it
+empty to disable email — the admin **Generate link** button and the `send:false`
+API still return shareable links.
+
+**Notes**
+- Default photo storage is a `ReadWriteOnce` PVC, so `web.replicaCount` defaults
+  to **1**. Switch to S3/Azure (below) to scale out.
+- To use a managed database (RDS/Azure Postgres) instead of the in-cluster pod:
+  `--set postgres.enabled=false --set externalDatabaseUrl=postgres://…`.
+- All config values live in `charts/wallofsuccess/values.yaml`.
+
+### Photo storage: local PVC, S3, or Azure Blob
+
+Set `storage.driver` to `local` (default), `s3`, or `azure`. With a cloud driver,
+disable the uploads PVC and you can run multiple replicas.
+
+**AWS S3** (recommended: IRSA, no static keys):
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set storage.driver=s3 \
+  --set storage.s3.bucket=my-wall-photos \
+  --set storage.s3.region=eu-central-1 \
+  --set web.uploads.enabled=false \
+  --set web.replicaCount=2 \
+  --set serviceAccount.create=true \
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::123456789012:role/wall-photos
+```
+Photos are served from the bucket; set `storage.s3.publicBaseUrl` to a CloudFront
+domain if the bucket isn't directly public. For MinIO / S3-compatible, set
+`storage.s3.endpoint` and `storage.s3.forcePathStyle=true`. Static keys (instead
+of IRSA) go in `storage.s3.accessKeyId` / `secretAccessKey`.
+
+**Azure Blob**:
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set storage.driver=azure \
+  --set storage.azure.connectionString='DefaultEndpointsProtocol=https;AccountName=...' \
+  --set storage.azure.container=photos \
+  --set web.uploads.enabled=false
+```
+Or use `storage.azure.account` + `accountKey`. The container must allow public
+blob read (or front it with a CDN via `storage.azure.publicBaseUrl`). For AKS
+Workload Identity, set `serviceAccount.create=true` with the
+`azure.workload.identity/client-id` annotation and
+`serviceAccount.podLabels."azure\.workload\.identity/use"=true`.
+
+The driver in use is reported at `GET /healthz` (`"storage":"s3"`).
+
+### External trigger (Kubernetes mode)
+
+Same contract as the managed mode, just against your ingress host:
+
+```bash
+curl -X POST "https://wall.example.com/api/fn/request-testimonial" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR-REQUEST_API_KEY" \
+  -d '{ "name": "Ada Lovelace", "project": "Project Helios", "send": false }'
+```
+
 ---
 
 ## How it works

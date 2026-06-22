@@ -1,63 +1,35 @@
-import { supabase } from './supabase.js';
+import { api } from './api.js';
 
-// Shape returned by Supabase when we join people + tags onto testimonials.
-const SELECT_FULL = `
-  id, person_id, project_name, summary, body, status, created_at, approved_at,
-  people:person_id ( id, name, title, photo_url ),
-  testimonial_tags ( filter_options ( id, category, value ) )
-`;
+// Public reads + comment posting. The backend returns testimonials already
+// joined with their person and tags (see server/src/index.js).
 
 export async function fetchApprovedTestimonials() {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('testimonials')
-    .select(SELECT_FULL)
-    .eq('status', 'approved')
-    .order('approved_at', { ascending: false });
-  if (error) throw error;
-  return (data || []).map(normalizeTestimonial);
+  const rows = await api('/testimonials');
+  return (rows || []).map(normalizeTestimonial);
 }
 
 export async function fetchAllTestimonials() {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('testimonials')
-    .select(SELECT_FULL)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data || []).map(normalizeTestimonial);
+  const rows = await api('/admin/testimonials', { auth: true });
+  return (rows || []).map(normalizeTestimonial);
 }
 
 export async function fetchFilterOptions() {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('filter_options')
-    .select('id, category, value, sort_order')
-    .order('category', { ascending: true })
-    .order('sort_order', { ascending: true });
-  if (error) throw error;
-  return data || [];
+  return (await api('/filter-options')) || [];
 }
 
 export async function fetchSettings() {
-  if (!supabase) return {};
-  const { data, error } = await supabase.from('settings').select('key, value');
-  if (error) throw error;
-  const out = {};
-  for (const row of data || []) out[row.key] = row.value;
-  return out;
+  return (await api('/settings')) || {};
 }
 
 export async function fetchComments(testimonialId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('comments')
-    .select('id, testimonial_id, author_name, body, status, created_at')
-    .eq('testimonial_id', testimonialId)
-    .eq('status', 'visible')
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data || [];
+  return (await api(`/testimonials/${testimonialId}/comments`)) || [];
+}
+
+export async function postComment(testimonialId, { author_name, body }) {
+  return api('/comments', {
+    method: 'POST',
+    body: { testimonial_id: testimonialId, author_name, body },
+  });
 }
 
 export function normalizeTestimonial(t) {
@@ -70,10 +42,8 @@ export function normalizeTestimonial(t) {
     status: t.status,
     createdAt: t.created_at,
     approvedAt: t.approved_at,
-    person: t.people || { id: t.person_id, name: 'Unknown', title: '', photo_url: null },
-    tags: (t.testimonial_tags || [])
-      .map((tt) => tt.filter_options)
-      .filter(Boolean),
+    person: t.person || { id: t.person_id, name: 'Unknown', title: '', photo_url: null },
+    tags: t.tags || [],
   };
 }
 

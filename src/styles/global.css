@@ -345,8 +345,14 @@ textarea { resize: vertical; min-height: 120px; }
   padding: 0.9rem 0; border-bottom: 1px solid var(--line);
 }
 .row:last-child { border-bottom: none; }
-.row-main { flex: 1; }
+.row-main { flex: 1; min-width: 0; } /* min-width:0 lets the flex item shrink so text wraps */
 .row-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* Wrap long, unbroken strings (e.g. URLs or "aaaa…") instead of overflowing. */
+.row-main, .prose, .note-summary, .comment-body, .notice {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .badge {
   font-size: 0.7rem; border-radius: 999px; padding: 0.1rem 0.5rem;
   text-transform: uppercase; letter-spacing: 0.04em;

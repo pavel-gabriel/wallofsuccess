@@ -1,11 +1,10 @@
 import { defineConfig } from 'astro/config';
 import preact from '@astrojs/preact';
 
-// GitHub Pages serves this project at https://<owner>.github.io/<repo>.
-// Adjust `site` and `base` if you use a custom domain (then set base to '/').
-// These can also be overridden at build time via SITE_URL / BASE_PATH env vars.
-const site = process.env.SITE_URL || 'https://pavel-gabriel.github.io';
-const base = process.env.BASE_PATH || '/wallofsuccess';
+// Served at the domain root by our own API server in Kubernetes (base '/').
+// For GitHub Pages under a subpath, set BASE_PATH=/wallofsuccess (and SITE_URL).
+const site = process.env.SITE_URL || 'http://localhost:8080';
+const base = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   site,

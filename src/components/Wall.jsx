@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured } from '../lib/supabase.js';
+import { isConfigured } from '../lib/api.js';
 import {
   fetchApprovedTestimonials,
   fetchFilterOptions,
@@ -71,9 +71,7 @@ export default function Wall() {
   if (!isConfigured) {
     return (
       <div class="notice notice-info">
-        <strong>Backend not configured yet.</strong> Set <code>PUBLIC_SUPABASE_URL</code> and{' '}
-        <code>PUBLIC_SUPABASE_ANON_KEY</code> (see <code>.env.example</code> and the README) to load
-        the wall.
+        <strong>Backend not reachable.</strong> Make sure the API server is running (see the README).
       </div>
     );
   }
