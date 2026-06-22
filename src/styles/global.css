@@ -48,6 +48,9 @@
   --card: #ffffff;
   --shadow: 0 10px 28px rgba(25, 43, 55, 0.12);
   --radius: 6px;             /* geometric / tighter corners */
+  /* Illustration/gradient (visual/illustrations): depth comes from Solid Blue;
+     Endava Orange is only ever an accent, never the gradient base. */
+  --grad-depth: linear-gradient(135deg, #21384a 0%, #192b37 60%, #14222c 100%);
 
   /* Motion (visual/motion): one easing + duration used by all transitions. */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -86,7 +89,7 @@ a:hover { color: var(--brand-press); }
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: var(--brand-ink);
+  background: var(--grad-depth);
   color: #fff;
   padding: 0.7rem clamp(1rem, 4vw, 2.5rem);
 }
@@ -294,10 +297,12 @@ a:hover { color: var(--brand-press); }
 .avatar {
   width: 46px; height: 46px; border-radius: 50%;
   object-fit: cover; flex: 0 0 auto;
-  background: #fff; border: 2px solid rgba(255, 255, 255, 0.7);
+  background: var(--sb-10); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; color: var(--accent);
+  font-weight: 700; color: var(--brand);
 }
+/* Image style (visual/images): natural, rich in contrast. */
+img.avatar { filter: contrast(1.05) saturate(1.02); }
 .note-name { font-weight: 700; font-size: 0.98rem; line-height: 1.15; }
 .note-title { font-size: 0.78rem; color: #4b5563; }
 .note-summary {
@@ -466,7 +471,7 @@ textarea { resize: vertical; min-height: 120px; }
 }
 .tag-pill button { background: none; border: none; cursor: pointer; color: var(--muted); }
 
-.spinner { color: #fff; text-align: center; padding: 2rem; }
+.spinner { color: var(--muted); text-align: center; padding: 2rem; }
 
 @media (max-width: 520px) {
   .wall { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
