@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Brandmark from '../components/Brandmark.astro';
 const { title = 'Wall of Fame', description = 'Meet the people behind the work.' } = Astro.props;
 const base = import.meta.env.BASE_URL;
 const home = base.endsWith('/') ? base : base + '/';
@@ -13,6 +14,11 @@ const home = base.endsWith('/') ? base : base + '/';
     <title>{title}</title>
   </head>
   <body>
+    <header class="brandbar">
+      <Brandmark href={home} />
+      <span class="brandbar-spacer"></span>
+      <span class="brandbar-tag">Wall of Fame</span>
+    </header>
     <slot name="header" />
     <main class="container">
       <slot />
