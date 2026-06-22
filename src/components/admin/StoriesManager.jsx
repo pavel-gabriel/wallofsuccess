@@ -107,11 +107,13 @@ function StoryInvite() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [link, setLink] = useState('');
+  const [copied, setCopied] = useState(false);
 
   async function run(send) {
     setBusy(true);
     setResult(null);
     setLink('');
+    setCopied(false);
     try {
       const data = await callFunction('request-story', { client_name: clientName.trim(), project: project.trim(), email: email.trim(), send });
       setLink(data?.link || '');
@@ -120,6 +122,16 @@ function StoryInvite() {
       setResult({ ok: false, message: await readFunctionError(e, 'Could not create the request.') });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked — the link is selectable in the field */
     }
   }
 
@@ -139,6 +151,9 @@ function StoryInvite() {
       {link && (
         <div class="row-inline" style={{ marginTop: '0.4rem' }}>
           <input type="text" value={link} readonly onFocus={(e) => e.currentTarget.select()} />
+          <button type="button" class="btn btn-secondary" onClick={copyLink}>
+            {copied ? 'Copied' : 'Copy'}
+          </button>
         </div>
       )}
     </div>
