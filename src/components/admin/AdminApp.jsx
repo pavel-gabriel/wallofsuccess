@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { isConfigured } from '../../lib/supabase.js';
+import { isConfigured } from '../../lib/api.js';
 import { getSession, signIn, signOut } from '../../lib/adminData.js';
 import { fetchAllTestimonials, fetchFilterOptions, fetchSettings } from '../../lib/data.js';
 import PendingQueue from './PendingQueue.jsx';
@@ -63,8 +63,7 @@ export default function AdminApp() {
     return (
       <div class="panel">
         <div class="notice notice-info">
-          Backend not configured. Set <code>PUBLIC_SUPABASE_URL</code> and{' '}
-          <code>PUBLIC_SUPABASE_ANON_KEY</code> (see the README) to use the admin dashboard.
+          Backend not reachable. Make sure the API server is running (see the README).
         </div>
       </div>
     );

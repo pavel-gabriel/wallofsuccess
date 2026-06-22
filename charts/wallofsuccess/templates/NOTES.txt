@@ -1,0 +1,32 @@
+Wall of Fame is deploying 🏆
+
+1. Watch the rollout:
+   kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+{{- if .Values.ingress.enabled }}
+
+2. Once ready, open:
+   {{ if .Values.ingress.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.ingress.host }}
+
+   Make sure DNS for {{ .Values.ingress.host }} points at your ingress controller's
+   external address, and that app.publicSiteUrl matches this host (used to build
+   submission links).
+{{- else }}
+
+2. Ingress is disabled. Port-forward to try it locally:
+   kubectl port-forward svc/{{ include "wallofsuccess.fullname" . }}-web 8080:{{ .Values.web.service.port }}
+   open http://localhost:8080
+{{- end }}
+
+3. Admin login: {{ .Values.app.adminEmail }} (password from app.adminPassword).
+   The admin dashboard is at /admin.
+
+{{- if eq .Values.app.jwtSecret "change-me-please" }}
+
+⚠  You are using default secrets (jwtSecret/adminPassword). Override them:
+   helm upgrade {{ .Release.Name }} . \
+     --set app.jwtSecret=$(openssl rand -hex 32) \
+     --set app.adminPassword=YOUR-STRONG-PASSWORD \
+     --set postgres.password=YOUR-DB-PASSWORD \
+     --set app.requestApiKey=$(openssl rand -hex 24)
+{{- end }}

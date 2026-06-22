@@ -1,0 +1,6 @@
+apiVersion: v2
+name: wallofsuccess
+description: Wall of Fame — team testimonials portfolio (web + Postgres) for EKS/AKS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

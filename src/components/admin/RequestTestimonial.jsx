@@ -1,11 +1,9 @@
 import { useState } from 'preact/hooks';
-import { supabase } from '../../lib/supabase.js';
-import { readFunctionError } from '../../lib/functions.js';
+import { callFunction, readFunctionError } from '../../lib/functions.js';
 
-// Admin-facing form that triggers the `request-testimonial` Edge Function.
-// supabase.functions.invoke attaches the logged-in admin's JWT, which the
-// function verifies (the same endpoint also accepts an x-api-key for external
-// apps — see the README).
+// Admin-facing form that triggers the `request-testimonial` backend endpoint.
+// callFunction attaches the logged-in admin's JWT, which the endpoint verifies
+// (it also accepts an x-api-key for external apps — see the README).
 //
 // Two actions share the form:
 //   • Send invitation  -> emails the one-time link (email required)
@@ -27,10 +25,12 @@ export default function RequestTestimonial() {
     setLink('');
     setCopied(false);
     try {
-      const { data, error } = await supabase.functions.invoke('request-testimonial', {
-        body: { name: name.trim(), email: email.trim(), project: project.trim(), send },
+      const data = await callFunction('request-testimonial', {
+        name: name.trim(),
+        email: email.trim(),
+        project: project.trim(),
+        send,
       });
-      if (error) throw error;
       setLink(data?.link || '');
       setResult({
         ok: true,

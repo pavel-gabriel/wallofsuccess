@@ -15,6 +15,91 @@ clients can quickly shortlist people for a future team.
 Astro (GitHub Pages) ──anon key + RLS──► Supabase (Postgres / Auth / Storage / Edge Functions) ──► Resend
 ```
 
+> **Two ways to run this**
+> 1. **Managed (Supabase)** — original setup, documented below.
+> 2. **Self-hosted on Kubernetes (EKS/AKS)** — a Node/Express API server replaces
+>    Supabase (Auth + Storage + Edge Functions + RLS) and talks to a plain
+>    **Postgres**, packaged as a **Helm chart** with an **Ingress**. See
+>    [Kubernetes deployment](#kubernetes-deployment-eksaks) — this is the path the
+>    `Dockerfile`, `server/`, and `charts/` directories implement.
+
+---
+
+## Kubernetes deployment (EKS/AKS)
+
+In this mode the same Astro frontend is served by our own API server
+(`server/`, Node + Express + `pg`), which provides everything Supabase did:
+
+| Supabase feature | Replacement |
+| --- | --- |
+| Postgres + RLS | Plain Postgres + **server-enforced** auth (no RLS) |
+| Auth (admin login) | JWT issued by `/api/auth/login`, bcrypt password, seeded from env |
+| Storage (photos) | Files on a PersistentVolume, served at `/uploads` |
+| Edge Functions | `/api/fn/submit-testimonial` and `/api/fn/request-testimonial` |
+| Resend email | Optional SMTP (`nodemailer`); unset = "Generate link" still works |
+
+**Architecture in-cluster**
+
+```
+        Ingress ──► web Service ──► web Deployment (pod: initContainer "migrate" + "server")
+                                          │  serves /  /admin  /submit  /api  /uploads
+                                          ▼
+                                   Postgres Deployment (+ PVC)
+```
+
+The Postgres lives in its own pod with a PVC. The web pod runs **two containers**:
+an init container that applies the schema/seeds the admin, then the server
+container. (If you specifically want Postgres co-located as a 2-container pod
+instead, say so and I'll switch it to a sidecar layout.)
+
+### 1. Build & push the image
+
+```bash
+docker build -t ghcr.io/pavel-gabriel/wallofsuccess:latest .
+docker push ghcr.io/pavel-gabriel/wallofsuccess:latest
+```
+
+### 2. Install with Helm
+
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set image.repository=ghcr.io/pavel-gabriel/wallofsuccess \
+  --set image.tag=latest \
+  --set ingress.host=wall.example.com \
+  --set app.publicSiteUrl=https://wall.example.com \
+  --set app.adminEmail=you@company.com \
+  --set app.adminPassword="$(openssl rand -hex 16)" \
+  --set app.jwtSecret="$(openssl rand -hex 32)" \
+  --set app.requestApiKey="$(openssl rand -hex 24)" \
+  --set postgres.password="$(openssl rand -hex 16)"
+```
+
+Point DNS for `ingress.host` at your ingress controller, set `app.publicSiteUrl`
+to the same host (it builds the `/submit?token=…` links), and you're live. For
+TLS, enable `ingress.tls.enabled` with cert-manager annotations.
+
+Optional email: `--set app.smtp.host=…` (plus port/user/password/from). Leave it
+empty to disable email — the admin **Generate link** button and the `send:false`
+API still return shareable links.
+
+**Notes**
+- Uploads use a `ReadWriteOnce` PVC, so `web.replicaCount` defaults to **1**. To
+  scale out, switch photo storage to object storage (S3/Blob) or an RWX volume.
+- To use a managed database (RDS/Azure Postgres) instead of the in-cluster pod:
+  `--set postgres.enabled=false --set externalDatabaseUrl=postgres://…`.
+- All config values live in `charts/wallofsuccess/values.yaml`.
+
+### External trigger (Kubernetes mode)
+
+Same contract as the managed mode, just against your ingress host:
+
+```bash
+curl -X POST "https://wall.example.com/api/fn/request-testimonial" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR-REQUEST_API_KEY" \
+  -d '{ "name": "Ada Lovelace", "project": "Project Helios", "send": false }'
+```
+
 ---
 
 ## How it works

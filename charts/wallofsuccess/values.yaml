@@ -1,0 +1,88 @@
+# Default values for the Wall of Fame chart.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # The web image built from the repo Dockerfile (frontend + API server).
+  repository: ghcr.io/pavel-gabriel/wallofsuccess
+  tag: latest
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+web:
+  replicaCount: 1 # uploads use a ReadWriteOnce PVC; see README before scaling up
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 80
+  # Persistent volume for uploaded profile photos (mounted at /data, photos in /data/uploads).
+  uploads:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+# Application configuration & secrets. For production, override these with
+# `--set` / a values file, or point `existingSecret` at a pre-created Secret.
+app:
+  # If set, the chart uses this Secret instead of creating one from the values below.
+  existingSecret: ""
+  jwtSecret: "change-me-please"            # signs admin sessions
+  adminEmail: "admin@example.com"          # seeded on first migrate
+  adminPassword: "change-me-please"        # seeded on first migrate (rotate by changing this)
+  requestApiKey: ""                        # x-api-key for external apps calling request-testimonial
+  publicSiteUrl: "https://wall.example.com" # used to build submission links; match your ingress host
+  tokenTtlDays: 14
+  # Optional SMTP for emailing invite links. Leave smtp.host empty to disable
+  # email (the admin "Generate link" still works and returns the link).
+  smtp:
+    host: ""
+    port: 587
+    secure: false
+    user: ""
+    password: ""
+    from: "Wall of Fame <noreply@example.com>"
+
+postgres:
+  enabled: true # set false to use an external/managed Postgres via app.databaseUrl
+  image: postgres:16-alpine
+  database: wallofsuccess
+  username: wall
+  password: "change-me-please"
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+# When postgres.enabled is false, set the full connection string here.
+externalDatabaseUrl: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: "6m"
+  host: wall.example.com
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+    secretName: wallofsuccess-tls
