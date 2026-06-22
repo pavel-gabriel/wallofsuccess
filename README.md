@@ -31,6 +31,26 @@ Astro (GitHub Pages) ──anon key + RLS──► Supabase (Postgres / Auth / S
 
 ---
 
+## Branding (Endava)
+
+The theme follows the Endava brand portal. All values are tokens in
+`src/styles/global.css` (`:root`):
+
+- **Colours** — Primary: Red Orange `#FF5640`, Solid Blue `#192B37`, Pure White
+  `#FFFFFF`. Neutrals are the Solid Blue opacity shades (`#30404B`…`#E8EAEB`).
+  Signal: Positive `#2D9C5B`, Warning `#EB9410`, Negative `#D4403B`. (Data-viz
+  palette also available as tokens.)
+- **Typography** — Signature font **Dava Sans** (geometric, based on Poppins);
+  official fallback **Helvetica**. The font stack is set; drop the licensed
+  Dava Sans files in `public/fonts/` and uncomment the `@font-face` block at the
+  top of `global.css` to enable it. (Cyrillic/Greek: Noto Sans.)
+- **Logo** — `src/components/Brandmark.astro` is a **placeholder**. Replace its
+  SVG with the official logo from the brand portal (keep the class names).
+- **Motion** — one easing/duration token (`--ease`, `--speed`) drives button,
+  card, and chip transitions.
+
+---
+
 ## Kubernetes deployment (EKS/AKS)
 
 In this mode the same Astro frontend is served by our own API server
