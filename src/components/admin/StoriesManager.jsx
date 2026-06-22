@@ -62,6 +62,9 @@ export default function StoriesManager({ options }) {
         ))}
       </div>
 
+      <p class="comment-meta" style={{ marginTop: '0.5rem' }}>
+        Stories appear on the public Success Stories page only when <strong>Published</strong> (approved&nbsp;+&nbsp;public).
+      </p>
       {error && <div class="notice notice-error">{error}</div>}
       {shown.length === 0 && <p class="comment-meta">Nothing here.</p>}
 
@@ -83,6 +86,10 @@ export default function StoriesManager({ options }) {
               {s.status === 'approved' && (
                 <button class="btn btn-sm btn-secondary" disabled={busy === s.id} onClick={() => act(s.id, () => updateStory(s.id, { status: 'archived' }))}>Archive</button>
               )}
+              <button class="btn btn-sm" disabled={busy === s.id}
+                onClick={() => act(s.id, () => updateStory(s.id, s.isPublic ? { is_public: false } : { is_public: true, status: 'approved' }))}>
+                {s.isPublic ? 'Unpublish' : 'Publish'}
+              </button>
               <button class="btn btn-sm btn-secondary" onClick={() => setEditing(editing === s.id ? null : s.id)}>{editing === s.id ? 'Close' : 'Edit'}</button>
               <button class="btn btn-sm btn-secondary" onClick={() => exportStoryPdf(s)}>PDF</button>
               <button class="btn btn-sm btn-secondary" onClick={() => exportStoryPptx(s)}>Slide</button>
