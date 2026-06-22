@@ -77,6 +77,65 @@ create table if not exists settings (
   value text
 );
 
+-- ---------------------------------------------------------------------------
+-- Success Stories (project/client case studies for bids)
+-- ---------------------------------------------------------------------------
+create table if not exists success_stories (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  client_name text default '',        -- full name, internal only
+  client_alias text default '',       -- public-safe label, e.g. "Tier-1 EU bank"
+  industry text default '',
+  summary text default '',            -- short public teaser
+  challenge text default '',
+  solution text default '',
+  results text default '',
+  duration text default '',
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'archived')),
+  is_public boolean not null default false,  -- may appear in the anonymized public view
+  created_at timestamptz not null default now(),
+  approved_at timestamptz
+);
+create index if not exists stories_status_idx on success_stories (status);
+
+create table if not exists story_metrics (
+  id uuid primary key default gen_random_uuid(),
+  story_id uuid not null references success_stories (id) on delete cascade,
+  label text not null,
+  value text not null,
+  sort_order int not null default 0
+);
+create index if not exists story_metrics_story_idx on story_metrics (story_id);
+
+create table if not exists story_contributors (
+  id uuid primary key default gen_random_uuid(),
+  story_id uuid not null references success_stories (id) on delete cascade,
+  person_id uuid references people (id) on delete set null,
+  name text default '',               -- fallback when not linked to a person
+  role text default '',
+  contribution text default '',
+  sort_order int not null default 0
+);
+create index if not exists story_contributors_story_idx on story_contributors (story_id);
+
+create table if not exists story_tags (
+  story_id uuid not null references success_stories (id) on delete cascade,
+  filter_option_id uuid not null references filter_options (id) on delete cascade,
+  primary key (story_id, filter_option_id)
+);
+
+create table if not exists story_requests (
+  id uuid primary key default gen_random_uuid(),
+  token text not null unique,
+  client_name text,
+  project_name text,
+  status text not null default 'sent'
+    check (status in ('sent', 'used', 'expired')),
+  expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 -- Force comment status on insert so visitors can never self-publish when
 -- moderation is enabled (mirrors the old Supabase trigger).
 create or replace function set_comment_status()

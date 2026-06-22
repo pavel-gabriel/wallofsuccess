@@ -17,7 +17,10 @@ const home = base.endsWith('/') ? base : base + '/';
     <header class="brandbar">
       <Brandmark href={home} />
       <span class="brandbar-spacer"></span>
-      <span class="brandbar-tag">Wall of Fame</span>
+      <nav class="brandbar-nav">
+        <a href={home}>Wall of Fame</a>
+        <a href={`${home}stories`}>Success Stories</a>
+      </nav>
     </header>
     <slot name="header" />
     <main class="container">

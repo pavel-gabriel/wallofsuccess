@@ -105,7 +105,30 @@ export async function upsertSetting(key, value) {
   await api(`/admin/settings/${encodeURIComponent(key)}`, { method: 'PUT', auth: true, body: { value } });
 }
 
-// --- "function" endpoints (submit / request testimonial) ------------------
+// --- success stories ------------------------------------------------------
+export async function fetchSuccessStories() {
+  return (await api('/success-stories')) || [];
+}
+export async function fetchSuccessStory(id) {
+  return api(`/success-stories/${id}`);
+}
+export async function fetchAllSuccessStories() {
+  return (await api('/admin/success-stories', { auth: true })) || [];
+}
+export async function createStory(fields) {
+  return api('/admin/success-stories', { method: 'POST', auth: true, body: fields });
+}
+export async function updateStory(id, fields) {
+  await api(`/admin/success-stories/${id}`, { method: 'PATCH', auth: true, body: fields });
+}
+export async function deleteStory(id) {
+  await api(`/admin/success-stories/${id}`, { method: 'DELETE', auth: true });
+}
+export async function setStoryChildren(id, children) {
+  await api(`/admin/success-stories/${id}/children`, { method: 'PUT', auth: true, body: children });
+}
+
+// --- "function" endpoints (submit / request testimonial & story) ----------
 export async function callFunction(name, body) {
   return api(`/fn/${name}`, { method: 'POST', body, auth: true });
 }

@@ -64,6 +64,29 @@ The theme follows the Endava brand portal. All values are tokens in
 
 ---
 
+## Success Stories (project/client case studies for bids)
+
+Separate from the people Wall of Fame, `/stories` is a repository of **client
+project success stories** for reuse in proposals/bids — challenge, solution,
+results, metrics, duration, tech tags, and multiple contributors per engagement.
+
+- **Hybrid visibility:** the public `/stories` view is **anonymized** (client
+  shown via `client_alias`; the real `client_name` never leaves the server / is
+  excluded by the `public_success_stories` Postgres view). Logged-in admins see
+  full detail and internal-only stories in the **Success stories** admin tab.
+- **Capture flow:** admins create stories directly, or send a tokenized
+  account-free link (admin "Invite" or `request-story` API, incl. `send:false`);
+  the departing person fills `/story-submit?token=…` → lands as `pending` →
+  admin approves → appears on `/stories`.
+- **Bid export:** each story exports a branded **one-page PDF** (print view) and
+  an editable **.pptx slide** (`pptxgenjs`) — anonymized for public, full when
+  exported from the admin view.
+- Implemented in both backends (`success_stories` + `story_metrics/contributors/
+  tags/requests`; Edge Functions `submit-story`/`request-story`; API routes
+  `/api/success-stories`, `/api/admin/success-stories`, `/api/fn/*-story`).
+
+---
+
 ## Kubernetes deployment (EKS/AKS)
 
 In this mode the same Astro frontend is served by our own API server

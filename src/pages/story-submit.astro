@@ -1,0 +1,15 @@
+---
+import Base from '../layouts/Base.astro';
+import StoryForm from '../components/StoryForm.jsx';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Submit a success story" description="Capture a client project success story.">
+  <header class="site-header" slot="header">
+    <h1>Project success story</h1>
+    <nav class="nav-links">
+      <a href={`${base}/stories`}>← Success Stories</a>
+    </nav>
+  </header>
+
+  <StoryForm client:load />
+</Base>
