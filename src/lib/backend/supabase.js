@@ -172,7 +172,136 @@ export async function upsertSetting(key, value) {
   if (error) throw error;
 }
 
-// --- Edge Functions (submit / request testimonial) ------------------------
+// --- success stories ------------------------------------------------------
+const STORY_EMBED =
+  '*, story_metrics(*), story_contributors(*, people(name)), story_tags(filter_options(id,category,value))';
+
+function normalizePublicStory(s) {
+  return {
+    id: s.id,
+    title: s.title,
+    clientAlias: s.client_alias,
+    industry: s.industry,
+    summary: s.summary,
+    challenge: s.challenge,
+    solution: s.solution,
+    results: s.results,
+    duration: s.duration,
+    createdAt: s.created_at,
+    approvedAt: s.approved_at,
+    metrics: s.metrics || [],
+    contributors: s.contributors || [],
+    tags: s.tags || [],
+  };
+}
+function normalizeStoryRow(s) {
+  const byOrder = (a, b) => (a.sort_order || 0) - (b.sort_order || 0);
+  return {
+    id: s.id,
+    title: s.title,
+    clientName: s.client_name,
+    clientAlias: s.client_alias,
+    industry: s.industry,
+    summary: s.summary,
+    challenge: s.challenge,
+    solution: s.solution,
+    results: s.results,
+    duration: s.duration,
+    status: s.status,
+    isPublic: s.is_public,
+    createdAt: s.created_at,
+    approvedAt: s.approved_at,
+    metrics: (s.story_metrics || []).sort(byOrder).map((m) => ({ id: m.id, label: m.label, value: m.value })),
+    contributors: (s.story_contributors || []).sort(byOrder).map((c) => ({
+      id: c.id,
+      person_id: c.person_id,
+      name: (c.people && c.people.name) || c.name,
+      role: c.role,
+      contribution: c.contribution,
+    })),
+    tags: (s.story_tags || []).map((t) => t.filter_options).filter(Boolean),
+  };
+}
+
+export async function fetchSuccessStories() {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('public_success_stories')
+    .select('*')
+    .order('approved_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(normalizePublicStory);
+}
+export async function fetchSuccessStory(id) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from('public_success_stories').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? normalizePublicStory(data) : null;
+}
+export async function fetchAllSuccessStories() {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('success_stories').select(STORY_EMBED).order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(normalizeStoryRow);
+}
+export async function createStory(fields) {
+  const { metrics, contributors, tag_ids, ...base } = fields;
+  const ins = await supabase.from('success_stories').insert(base).select('id').single();
+  if (ins.error) throw ins.error;
+  await writeStoryChildren(ins.data.id, { metrics, contributors, tag_ids });
+  return { id: ins.data.id };
+}
+export async function updateStory(id, fields) {
+  const patch = { ...fields };
+  if (fields.status === 'approved') patch.approved_at = new Date().toISOString();
+  const { error } = await supabase.from('success_stories').update(patch).eq('id', id);
+  if (error) throw error;
+}
+export async function deleteStory(id) {
+  const { error } = await supabase.from('success_stories').delete().eq('id', id);
+  if (error) throw error;
+}
+export async function setStoryChildren(id, children) {
+  await writeStoryChildren(id, children);
+}
+async function writeStoryChildren(id, { metrics, contributors, tag_ids }) {
+  if (metrics) {
+    await supabase.from('story_metrics').delete().eq('story_id', id);
+    const rows = metrics
+      .filter((m) => m.label || m.value)
+      .map((m, i) => ({ story_id: id, label: m.label || '', value: m.value || '', sort_order: i }));
+    if (rows.length) {
+      const r = await supabase.from('story_metrics').insert(rows);
+      if (r.error) throw r.error;
+    }
+  }
+  if (contributors) {
+    await supabase.from('story_contributors').delete().eq('story_id', id);
+    const rows = contributors
+      .filter((c) => c.name || c.role || c.person_id)
+      .map((c, i) => ({
+        story_id: id,
+        person_id: c.person_id || null,
+        name: c.name || '',
+        role: c.role || '',
+        contribution: c.contribution || '',
+        sort_order: i,
+      }));
+    if (rows.length) {
+      const r = await supabase.from('story_contributors').insert(rows);
+      if (r.error) throw r.error;
+    }
+  }
+  if (tag_ids) {
+    await supabase.from('story_tags').delete().eq('story_id', id);
+    if (tag_ids.length) {
+      const r = await supabase.from('story_tags').insert(tag_ids.map((fid) => ({ story_id: id, filter_option_id: fid })));
+      if (r.error) throw r.error;
+    }
+  }
+}
+
+// --- Edge Functions (submit / request testimonial & story) ----------------
 // invoke attaches the logged-in admin's JWT (or anon for the public submit
 // flow); the functions declare verify_jwt = false and authorize internally.
 export async function callFunction(name, body) {

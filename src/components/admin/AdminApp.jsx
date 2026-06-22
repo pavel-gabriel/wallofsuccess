@@ -8,10 +8,12 @@ import CommentsModeration from './CommentsModeration.jsx';
 import FilterOptionsManager from './FilterOptionsManager.jsx';
 import SettingsManager from './SettingsManager.jsx';
 import RequestTestimonial from './RequestTestimonial.jsx';
+import StoriesManager from './StoriesManager.jsx';
 
 const TABS = [
   ['pending', 'Pending'],
   ['all', 'All testimonials'],
+  ['stories', 'Success stories'],
   ['comments', 'Comments'],
   ['request', 'Request testimonial'],
   ['filters', 'Filter options'],
@@ -108,6 +110,7 @@ export default function AdminApp() {
       {tab === 'all' && (
         <AllTestimonials items={testimonials} options={options} onChange={reload} />
       )}
+      {tab === 'stories' && <StoriesManager options={options} />}
       {tab === 'comments' && <CommentsModeration testimonials={testimonials} />}
       {tab === 'request' && <RequestTestimonial />}
       {tab === 'filters' && <FilterOptionsManager options={options} onChange={reload} />}

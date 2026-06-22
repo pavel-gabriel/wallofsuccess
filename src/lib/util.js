@@ -46,7 +46,8 @@ export function formatDate(value) {
 }
 
 // Deterministic pick of a sticky-note color from a fixed palette, based on id.
-const NOTE_COLORS = ['note-yellow', 'note-pink', 'note-green', 'note-blue', 'note-orange', 'note-purple'];
+// Endava-palette note accents (see .note-* in global.css).
+const NOTE_COLORS = ['note-1', 'note-2', 'note-3', 'note-4', 'note-5', 'note-6'];
 export function noteColor(seed = '') {
   let h = 0;
   for (let i = 0; i < String(seed).length; i++) h = (h * 31 + String(seed).charCodeAt(i)) >>> 0;

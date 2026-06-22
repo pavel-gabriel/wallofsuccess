@@ -35,3 +35,9 @@ jobs:
 
       - name: Deploy submit-testimonial
         run: supabase functions deploy submit-testimonial
+
+      - name: Deploy request-story
+        run: supabase functions deploy request-story
+
+      - name: Deploy submit-story
+        run: supabase functions deploy submit-story

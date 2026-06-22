@@ -14,4 +14,9 @@ export {
   addFilterOption,
   deleteFilterOption,
   upsertSetting,
+  fetchAllSuccessStories,
+  createStory,
+  updateStory,
+  deleteStory,
+  setStoryChildren,
 } from '@backend';

@@ -39,6 +39,83 @@ const TESTIMONIAL_SELECT = `
 `;
 const TESTIMONIAL_GROUP = ' group by t.id, p.id ';
 
+// --- success story query + shaper ----------------------------------------
+const STORY_SELECT = `
+  select s.*,
+    coalesce((select json_agg(json_build_object('id', m.id, 'label', m.label, 'value', m.value, 'sort_order', m.sort_order) order by m.sort_order)
+              from story_metrics m where m.story_id = s.id), '[]') as metrics,
+    coalesce((select json_agg(json_build_object('id', c.id, 'person_id', c.person_id,
+                'name', nullif(coalesce(nullif(c.name, ''), p.name), ''), 'role', c.role,
+                'contribution', c.contribution, 'sort_order', c.sort_order) order by c.sort_order)
+              from story_contributors c left join people p on p.id = c.person_id where c.story_id = s.id), '[]') as contributors,
+    coalesce((select json_agg(json_build_object('id', fo.id, 'category', fo.category, 'value', fo.value))
+              from story_tags st join filter_options fo on fo.id = st.filter_option_id where st.story_id = s.id), '[]') as tags
+  from success_stories s
+`;
+
+// `full` includes the confidential client_name (admin/internal only).
+function shapeStory(s, { full }) {
+  const out = {
+    id: s.id,
+    title: s.title,
+    clientAlias: s.client_alias,
+    industry: s.industry,
+    summary: s.summary,
+    challenge: s.challenge,
+    solution: s.solution,
+    results: s.results,
+    duration: s.duration,
+    status: s.status,
+    isPublic: s.is_public,
+    createdAt: s.created_at,
+    approvedAt: s.approved_at,
+    metrics: s.metrics || [],
+    contributors: s.contributors || [],
+    tags: s.tags || [],
+  };
+  if (full) out.clientName = s.client_name;
+  return out;
+}
+
+// Replace-style writers for a story's child collections (run inside a tx).
+async function insertStoryMetrics(client, sid, metrics) {
+  let i = 0;
+  for (const m of metrics || []) {
+    const label = String(m.label || '').trim().slice(0, 120);
+    const value = String(m.value || '').trim().slice(0, 120);
+    if (!label && !value) continue;
+    await client.query(
+      'insert into story_metrics (story_id, label, value, sort_order) values ($1, $2, $3, $4)',
+      [sid, label, value, i++]
+    );
+  }
+}
+async function insertStoryContributors(client, sid, contributors) {
+  let i = 0;
+  for (const c of contributors || []) {
+    const name = String(c.name || '').trim().slice(0, 160);
+    const role = String(c.role || '').trim().slice(0, 160);
+    const contribution = String(c.contribution || '').trim().slice(0, 2000);
+    const personId = c.person_id ? String(c.person_id) : null;
+    if (!name && !personId && !role && !contribution) continue;
+    await client.query(
+      'insert into story_contributors (story_id, person_id, name, role, contribution, sort_order) values ($1, $2, $3, $4, $5, $6)',
+      [sid, personId, name, role, contribution, i++]
+    );
+  }
+}
+async function insertStoryTags(client, sid, tagIds) {
+  const ids = (tagIds || []).map(String);
+  if (!ids.length) return;
+  const valid = (await client.query('select id from filter_options where id = any($1::uuid[])', [ids])).rows;
+  for (const r of valid) {
+    await client.query(
+      'insert into story_tags (story_id, filter_option_id) values ($1, $2) on conflict do nothing',
+      [sid, r.id]
+    );
+  }
+}
+
 // --- health ---------------------------------------------------------------
 app.get('/healthz', wrap(async (_req, res) => {
   await query('select 1');
@@ -51,6 +128,23 @@ app.get('/api/testimonials', wrap(async (_req, res) => {
     `${TESTIMONIAL_SELECT} where t.status = 'approved' ${TESTIMONIAL_GROUP} order by t.approved_at desc nulls last`
   );
   res.json(rows);
+}));
+
+// Public success stories — approved + public only, client_name stripped.
+app.get('/api/success-stories', wrap(async (_req, res) => {
+  const { rows } = await query(
+    `${STORY_SELECT} where s.status = 'approved' and s.is_public order by s.approved_at desc nulls last`
+  );
+  res.json(rows.map((s) => shapeStory(s, { full: false })));
+}));
+
+app.get('/api/success-stories/:id', wrap(async (req, res) => {
+  const { rows } = await query(
+    `${STORY_SELECT} where s.id = $1 and s.status = 'approved' and s.is_public`,
+    [req.params.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  res.json(shapeStory(rows[0], { full: false }));
 }));
 
 app.get('/api/filter-options', wrap(async (_req, res) => {
@@ -214,6 +308,105 @@ app.post('/api/fn/request-testimonial', adminOrApiKey, wrap(async (req, res) => 
   });
 }));
 
+// submit-story: public token flow (no account), mirrors submit-testimonial.
+app.post('/api/fn/submit-story', wrap(async (req, res) => {
+  const action = String(req.body.action || '');
+  const token = String(req.body.token || '');
+  if (!token) return res.status(400).json({ error: 'Missing token' });
+
+  const request = await one(`select * from story_requests where token = $1 and status = 'sent'`, [token]);
+  const valid = request && (!request.expires_at || new Date(request.expires_at) >= new Date());
+  if (!valid) return res.status(410).json({ error: 'This link is invalid, used, or expired.' });
+
+  if (action === 'validate') {
+    return res.json({ request: { client_name: request.client_name, project_name: request.project_name } });
+  }
+
+  if (action === 'submit') {
+    const f = req.body;
+    const title = String(f.title || '').trim().slice(0, 200);
+    if (!title) return res.status(400).json({ error: 'A project title is required.' });
+    const vals = [
+      title,
+      String(f.client_name || '').trim().slice(0, 200),
+      String(f.client_alias || '').trim().slice(0, 200),
+      String(f.industry || '').trim().slice(0, 120),
+      String(f.summary || '').trim().slice(0, 600),
+      String(f.challenge || '').trim().slice(0, 8000),
+      String(f.solution || '').trim().slice(0, 8000),
+      String(f.results || '').trim().slice(0, 8000),
+      String(f.duration || '').trim().slice(0, 120),
+    ];
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      const sid = (await client.query(
+        `insert into success_stories
+           (title, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',false) returning id`,
+        vals
+      )).rows[0].id;
+      await insertStoryMetrics(client, sid, f.metrics);
+      await insertStoryContributors(client, sid, f.contributors);
+      await insertStoryTags(client, sid, f.tag_ids);
+      await client.query(`update story_requests set status = 'used' where id = $1`, [request.id]);
+      await client.query('commit');
+    } catch (e) {
+      await client.query('rollback');
+      throw e;
+    } finally {
+      client.release();
+    }
+    return res.json({ ok: true });
+  }
+
+  return res.status(400).json({ error: 'Unknown action' });
+}));
+
+// request-story: admin JWT OR x-api-key; creates a one-time link and optionally emails it.
+app.post('/api/fn/request-story', adminOrApiKey, wrap(async (req, res) => {
+  const clientName = String(req.body.client_name || '').trim().slice(0, 200);
+  const project = String(req.body.project || '').trim().slice(0, 200);
+  const email = String(req.body.email || '').trim().slice(0, 200);
+  const shouldSend = req.body.send !== false;
+  const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  if (shouldSend && !emailValid) {
+    return res.status(400).json({ error: 'A valid email is required to send an invitation.' });
+  }
+  if (email && !emailValid) {
+    return res.status(400).json({ error: 'The email address is not valid.' });
+  }
+  if (!PUBLIC_SITE_URL) {
+    return res.status(500).json({ error: 'PUBLIC_SITE_URL is not configured on the server.' });
+  }
+  const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+  const expires = new Date(Date.now() + TOKEN_TTL_DAYS * 86400_000).toISOString();
+  await query(
+    `insert into story_requests (token, client_name, project_name, status, expires_at)
+     values ($1, $2, $3, 'sent', $4)`,
+    [token, clientName || null, project, expires]
+  );
+  const link = `${PUBLIC_SITE_URL}/story-submit?token=${token}`;
+  let sent = false;
+  if (shouldSend) {
+    try {
+      ({ sent } = await sendInvite(email, clientName, link));
+    } catch (e) {
+      return res.status(502).json({ error: `Email provider error: ${e.message}` });
+    }
+  }
+  res.json({
+    ok: true,
+    sent,
+    link,
+    message: sent
+      ? `Invitation emailed to ${email}.`
+      : shouldSend
+        ? `Request created, but email is not configured. Share this link: ${link}`
+        : `Link generated. Copy it and share: ${link}`,
+  });
+}));
+
 // ======================= AUTH =======================
 app.post('/api/auth/login', wrap(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -344,6 +537,109 @@ admin.put('/settings/:key', wrap(async (req, res) => {
     [req.params.key, String(req.body.value ?? '')]
   );
   res.json({ ok: true });
+}));
+
+// --- admin: success stories ---
+admin.get('/success-stories', wrap(async (_req, res) => {
+  const { rows } = await query(`${STORY_SELECT} order by s.created_at desc`);
+  res.json(rows.map((s) => shapeStory(s, { full: true })));
+}));
+
+admin.get('/success-stories/:id', wrap(async (req, res) => {
+  const { rows } = await query(`${STORY_SELECT} where s.id = $1`, [req.params.id]);
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  res.json(shapeStory(rows[0], { full: true }));
+}));
+
+admin.post('/success-stories', wrap(async (req, res) => {
+  const f = req.body;
+  if (!String(f.title || '').trim()) return res.status(400).json({ error: 'Title is required.' });
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const sid = (await client.query(
+      `insert into success_stories
+         (title, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
+      [
+        String(f.title).trim().slice(0, 200),
+        String(f.client_name || '').trim().slice(0, 200),
+        String(f.client_alias || '').trim().slice(0, 200),
+        String(f.industry || '').trim().slice(0, 120),
+        String(f.summary || '').trim().slice(0, 600),
+        String(f.challenge || '').slice(0, 8000),
+        String(f.solution || '').slice(0, 8000),
+        String(f.results || '').slice(0, 8000),
+        String(f.duration || '').trim().slice(0, 120),
+        ['pending', 'approved', 'archived'].includes(f.status) ? f.status : 'pending',
+        Boolean(f.is_public),
+      ]
+    )).rows[0].id;
+    await insertStoryMetrics(client, sid, f.metrics);
+    await insertStoryContributors(client, sid, f.contributors);
+    await insertStoryTags(client, sid, f.tag_ids);
+    await client.query('commit');
+    res.json({ ok: true, id: sid });
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
+}));
+
+admin.patch('/success-stories/:id', wrap(async (req, res) => {
+  const allowed = ['title', 'client_name', 'client_alias', 'industry', 'summary',
+    'challenge', 'solution', 'results', 'duration', 'status', 'is_public'];
+  const sets = [];
+  const vals = [];
+  for (const k of allowed) {
+    if (k in req.body) {
+      vals.push(req.body[k]);
+      sets.push(`${k} = $${vals.length}`);
+    }
+  }
+  if (req.body.status === 'approved') {
+    vals.push(new Date().toISOString());
+    sets.push(`approved_at = $${vals.length}`);
+  }
+  if (!sets.length) return res.status(400).json({ error: 'No fields to update.' });
+  vals.push(req.params.id);
+  await query(`update success_stories set ${sets.join(', ')} where id = $${vals.length}`, vals);
+  res.json({ ok: true });
+}));
+
+admin.delete('/success-stories/:id', wrap(async (req, res) => {
+  await query('delete from success_stories where id = $1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// Replace a story's metrics / contributors / tags in one call.
+admin.put('/success-stories/:id/children', wrap(async (req, res) => {
+  const sid = req.params.id;
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    if ('metrics' in req.body) {
+      await client.query('delete from story_metrics where story_id = $1', [sid]);
+      await insertStoryMetrics(client, sid, req.body.metrics);
+    }
+    if ('contributors' in req.body) {
+      await client.query('delete from story_contributors where story_id = $1', [sid]);
+      await insertStoryContributors(client, sid, req.body.contributors);
+    }
+    if ('tag_ids' in req.body) {
+      await client.query('delete from story_tags where story_id = $1', [sid]);
+      await insertStoryTags(client, sid, req.body.tag_ids);
+    }
+    await client.query('commit');
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
 }));
 
 app.use('/api/admin', admin);
