@@ -1,17 +1,11 @@
 ---
-/*
- * PLACEHOLDER brandmark — NOT the official Endava logo.
- * Replace the SVG + wordmark below with the official asset from
- * https://brand.endava.com/visual/logo (download the SVG; don't recreate it).
- * Keep the element/class names so the styling and layout still apply.
- */
+// Official Endava logo (wordmark + symbol). The dark-background version is used
+// because the brand bar sits on the Solid Blue depth gradient. Imported with
+// ?url so Astro emits a fingerprinted asset whose path stays correct under any
+// base (e.g. /wallofsuccess on GitHub Pages).
+import logoDark from '../assets/brand/endava-logo-dark.svg?url';
 const { href = '/' } = Astro.props;
 ---
-<a class="brandmark" href={href} aria-label="endava — Wall of Fame">
-  <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-    <rect width="22" height="22" rx="4" fill="var(--brand)"></rect>
-    <rect x="5.5" y="6" width="11" height="3" rx="1.5" fill="#fff"></rect>
-    <rect x="5.5" y="13" width="7.5" height="3" rx="1.5" fill="#fff"></rect>
-  </svg>
-  <span class="brandmark-word">endav<b>a</b></span>
+<a class="brandmark" href={href} aria-label="Endava — Wall of Fame">
+  <img class="brandmark-logo" src={logoDark} alt="Endava" />
 </a>
