@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { isConfigured } from '../../lib/api.js';
+import { isConfigured } from '../../lib/data.js';
 import { getSession, signIn, signOut } from '../../lib/adminData.js';
 import { fetchAllTestimonials, fetchFilterOptions, fetchSettings } from '../../lib/data.js';
 import PendingQueue from './PendingQueue.jsx';

@@ -7,7 +7,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 COPY astro.config.mjs ./
 COPY src ./src
-ENV BASE_PATH=/
+ENV PUBLIC_BACKEND=api BASE_PATH=/
 RUN npm run build
 
 # --- Stage 2: install server production deps ---

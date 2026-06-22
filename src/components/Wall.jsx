@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured } from '../lib/api.js';
 import {
+  isConfigured,
   fetchApprovedTestimonials,
   fetchFilterOptions,
   fetchSettings,
