@@ -32,11 +32,18 @@ export default function RequestTestimonial() {
         send,
       });
       setLink(data?.link || '');
-      setResult({
-        ok: true,
-        message: data?.message || (send ? `Invitation sent to ${email}.` : 'Link generated.'),
-      });
-      if (send) {
+      // Keep the toast short — the full link is shown in its own copyable field
+      // below, so we don't repeat the long URL from the server message here.
+      let message;
+      if (!send) {
+        message = 'Link generated — copy it below.';
+      } else if (data?.sent) {
+        message = `Invitation emailed to ${email}.`;
+      } else {
+        message = 'Email isn’t configured — copy the link below to share.';
+      }
+      setResult({ ok: true, message });
+      if (send && data?.sent) {
         setName('');
         setEmail('');
         setProject('');
