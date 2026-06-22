@@ -36,7 +36,13 @@ spec:
       labels:
         {{- include "wallofsuccess.labels" . | nindent 8 }}
         app.kubernetes.io/component: web
+        {{- with .Values.serviceAccount.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+      serviceAccountName: {{ default (printf "%s-web" (include "wallofsuccess.fullname" .)) .Values.serviceAccount.name }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

@@ -1,19 +1,18 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { pool, query, one } from './db.js';
 import { signToken, requireAdmin, adminOrApiKey } from './auth.js';
 import { sendInvite, mailEnabled } from './mailer.js';
+import { savePhotoDataUrl, storageInfo } from './storage.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 const FRONTEND_DIR = process.env.FRONTEND_DIR || resolve(__dirname, '../../dist');
 const UPLOADS_DIR = process.env.UPLOADS_DIR || resolve(__dirname, '../../uploads');
 const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '');
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const TOKEN_TTL_DAYS = Number(process.env.TOKEN_TTL_DAYS || 14);
 
 const app = express();
@@ -43,7 +42,7 @@ const TESTIMONIAL_GROUP = ' group by t.id, p.id ';
 // --- health ---------------------------------------------------------------
 app.get('/healthz', wrap(async (_req, res) => {
   await query('select 1');
-  res.json({ ok: true, mail: mailEnabled });
+  res.json({ ok: true, mail: mailEnabled, storage: storageInfo().driver });
 }));
 
 // ======================= PUBLIC API =======================
@@ -103,18 +102,6 @@ async function findValidRequest(token) {
   return row;
 }
 
-async function saveDataUrlPhoto(dataUrl) {
-  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(dataUrl);
-  if (!m) return { error: 'Unsupported image format.' };
-  const ext = m[1].split('/')[1].replace('jpeg', 'jpg');
-  const bytes = Buffer.from(m[2], 'base64');
-  if (bytes.length > MAX_PHOTO_BYTES) return { error: 'Photo must be 2 MB or smaller.' };
-  await mkdir(UPLOADS_DIR, { recursive: true });
-  const name = `${crypto.randomUUID()}.${ext}`;
-  await writeFile(join(UPLOADS_DIR, name), bytes);
-  return { url: `/uploads/${name}` };
-}
-
 app.post('/api/fn/submit-testimonial', wrap(async (req, res) => {
   const action = String(req.body.action || '');
   const token = String(req.body.token || '');
@@ -140,7 +127,7 @@ app.post('/api/fn/submit-testimonial', wrap(async (req, res) => {
 
     let photoUrl = null;
     if (typeof req.body.photo === 'string' && req.body.photo.startsWith('data:')) {
-      const saved = await saveDataUrlPhoto(req.body.photo);
+      const saved = await savePhotoDataUrl(req.body.photo);
       if (saved.error) return res.status(400).json({ error: saved.error });
       photoUrl = saved.url;
     }

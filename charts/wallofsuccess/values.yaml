@@ -11,7 +11,7 @@ image:
 imagePullSecrets: []
 
 web:
-  replicaCount: 1 # uploads use a ReadWriteOnce PVC; see README before scaling up
+  replicaCount: 1 # local uploads use a ReadWriteOnce PVC; with S3/Azure you can scale up
   resources:
     requests:
       cpu: 50m
@@ -22,12 +22,43 @@ web:
   service:
     type: ClusterIP
     port: 80
-  # Persistent volume for uploaded profile photos (mounted at /data, photos in /data/uploads).
+  # PersistentVolume for uploaded photos — only used when storage.driver=local
+  # (mounted at /data, photos in /data/uploads). Set enabled: false for S3/Azure.
   uploads:
     enabled: true
     size: 1Gi
     storageClass: ""
     accessMode: ReadWriteOnce
+
+# ServiceAccount for the web pods. Use annotations for cloud identity instead of
+# static keys: EKS IRSA (eks.amazonaws.com/role-arn) or AKS Workload Identity
+# (azure.workload.identity/client-id, plus podLabels: azure.workload.identity/use: "true").
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+  podLabels: {}
+
+# Where profile photos are stored: local | s3 | azure.
+storage:
+  driver: local
+  s3:
+    bucket: ""
+    region: ""
+    endpoint: ""          # set for S3-compatible (MinIO); leave empty for AWS
+    forcePathStyle: false
+    prefix: ""            # optional key prefix, e.g. "photos"
+    publicBaseUrl: ""     # optional CDN/CloudFront base for returned URLs
+    acl: ""               # e.g. "public-read" if your bucket allows ACLs
+    # Leave keys empty to use IRSA / instance role (recommended on EKS).
+    accessKeyId: ""
+    secretAccessKey: ""
+  azure:
+    connectionString: ""  # easiest; or set account + accountKey below
+    account: ""
+    accountKey: ""
+    container: ""
+    publicBaseUrl: ""     # optional CDN base; defaults to the blob URL
 
 # Application configuration & secrets. For production, override these with
 # `--set` / a values file, or point `existingSecret` at a pre-created Secret.

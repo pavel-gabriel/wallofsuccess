@@ -83,11 +83,48 @@ empty to disable email — the admin **Generate link** button and the `send:fals
 API still return shareable links.
 
 **Notes**
-- Uploads use a `ReadWriteOnce` PVC, so `web.replicaCount` defaults to **1**. To
-  scale out, switch photo storage to object storage (S3/Blob) or an RWX volume.
+- Default photo storage is a `ReadWriteOnce` PVC, so `web.replicaCount` defaults
+  to **1**. Switch to S3/Azure (below) to scale out.
 - To use a managed database (RDS/Azure Postgres) instead of the in-cluster pod:
   `--set postgres.enabled=false --set externalDatabaseUrl=postgres://…`.
 - All config values live in `charts/wallofsuccess/values.yaml`.
+
+### Photo storage: local PVC, S3, or Azure Blob
+
+Set `storage.driver` to `local` (default), `s3`, or `azure`. With a cloud driver,
+disable the uploads PVC and you can run multiple replicas.
+
+**AWS S3** (recommended: IRSA, no static keys):
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set storage.driver=s3 \
+  --set storage.s3.bucket=my-wall-photos \
+  --set storage.s3.region=eu-central-1 \
+  --set web.uploads.enabled=false \
+  --set web.replicaCount=2 \
+  --set serviceAccount.create=true \
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::123456789012:role/wall-photos
+```
+Photos are served from the bucket; set `storage.s3.publicBaseUrl` to a CloudFront
+domain if the bucket isn't directly public. For MinIO / S3-compatible, set
+`storage.s3.endpoint` and `storage.s3.forcePathStyle=true`. Static keys (instead
+of IRSA) go in `storage.s3.accessKeyId` / `secretAccessKey`.
+
+**Azure Blob**:
+```bash
+helm upgrade --install wof charts/wallofsuccess \
+  --set storage.driver=azure \
+  --set storage.azure.connectionString='DefaultEndpointsProtocol=https;AccountName=...' \
+  --set storage.azure.container=photos \
+  --set web.uploads.enabled=false
+```
+Or use `storage.azure.account` + `accountKey`. The container must allow public
+blob read (or front it with a CDN via `storage.azure.publicBaseUrl`). For AKS
+Workload Identity, set `serviceAccount.create=true` with the
+`azure.workload.identity/client-id` annotation and
+`serviceAccount.podLabels."azure\.workload\.identity/use"=true`.
+
+The driver in use is reported at `GET /healthz` (`"storage":"s3"`).
 
 ### External trigger (Kubernetes mode)
 
