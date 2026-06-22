@@ -1,18 +1,21 @@
-/* Drop the licensed "Dava Sans" here to enable the signature typeface.
-   1. Download the Dava Sans archive from brand.endava.com/visual/typography
-   2. Put the woff2/woff files in public/fonts/ (create the folder)
-   3. Uncomment and adjust:
-   @font-face {
-     font-family: "Dava Sans";
-     src: url("/fonts/DavaSans-Regular.woff2") format("woff2");
-     font-weight: 400; font-style: normal; font-display: swap;
-   }
-   @font-face {
-     font-family: "Dava Sans";
-     src: url("/fonts/DavaSans-Bold.woff2") format("woff2");
-     font-weight: 700; font-style: normal; font-display: swap;
-   }
-   For Cyrillic/Greek content the brand specifies "Noto Sans". */
+/* Endava signature typeface "Dava Sans" (visual/typography). Files live in
+   src/fonts/; Vite fingerprints these relative URLs so they resolve under any
+   base. For Cyrillic/Greek content the brand specifies "Noto Sans". */
+@font-face {
+  font-family: "Dava Sans";
+  src: url("../fonts/DavaSans-Regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Dava Sans";
+  src: url("../fonts/DavaSans-Medium.ttf") format("truetype");
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Dava Sans";
+  src: url("../fonts/DavaSans-Bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
 
 :root {
   /* =====================================================================
@@ -98,16 +101,13 @@ a:hover { color: var(--brand-press); }
 .brandmark {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   text-decoration: none;
 }
-.brandmark-word {
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: 0.02em;
-  color: #fff;
+.brandmark-logo {
+  height: 26px;
+  width: auto;
+  display: block;
 }
-.brandmark-word b { color: var(--brand); font-weight: 700; } /* accent dot/letter */
 .brandbar-tag {
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -127,7 +127,7 @@ a:hover { color: var(--brand-press); }
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 3rem);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
