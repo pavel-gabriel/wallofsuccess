@@ -44,8 +44,21 @@ The theme follows the Endava brand portal. All values are tokens in
   official fallback **Helvetica**. The font stack is set; drop the licensed
   Dava Sans files in `public/fonts/` and uncomment the `@font-face` block at the
   top of `global.css` to enable it. (Cyrillic/Greek: Noto Sans.)
-- **Logo** — `src/components/Brandmark.astro` is a **placeholder**. Replace its
-  SVG with the official logo from the brand portal (keep the class names).
+- **Logo** — `src/components/Brandmark.astro` is a **placeholder** (the logo is a
+  trademark, not reproduced here). Replace its SVG with the official asset from
+  the **Endava Logo Pack (ZIP)** on the brand portal, keeping the class names.
+  Respect the safe zone, the minimum size, and the partner-lockup rules; don't
+  recolour or distort it.
+- **Images** (visual/images) — photos should be natural and rich in contrast
+  (shot in natural light, clear focal point, room for whitespace). Testimonial
+  photos get a subtle contrast/saturation treatment and a Solid-Blue neutral
+  placeholder via `.avatar` / `img.avatar`.
+- **Illustration / gradients** (visual/illustrations) — depth comes from
+  **Solid Blue** gradients (`--grad-depth`, used on the brand bar); **Endava
+  Orange is only ever an accent**, never the gradient base.
+- **Icons** (visual/icons) — geometric, 2px stroke, rounded corners/endings with
+  the connecting brand shape. Use SVGs from the official icon library; the
+  inline mark in `Brandmark.astro` follows the geometric style.
 - **Motion** — one easing/duration token (`--ease`, `--speed`) drives button,
   card, and chip transitions.
 
