@@ -13,7 +13,7 @@ function label(cat) {
 }
 
 // active = { [category]: Set(optionId) }
-export default function FilterBar({ options, active, onToggle, onClear, resultCount, query, onQuery }) {
+export default function FilterBar({ options, active, onToggle, onClear, resultCount, query, onQuery, noun = { one: 'person', other: 'people' } }) {
   const [open, setOpen] = useState(false);
 
   const grouped = useMemo(() => {
@@ -50,7 +50,7 @@ export default function FilterBar({ options, active, onToggle, onClear, resultCo
         />
 
         <div class="filter-actions">
-          <span>{resultCount} {resultCount === 1 ? 'person' : 'people'}</span>
+          <span>{resultCount} {resultCount === 1 ? noun.one : noun.other}</span>
           {(totalActive > 0 || query) && (
             <button class="link-btn" onClick={() => { onClear(); onQuery(''); }}>Clear</button>
           )}

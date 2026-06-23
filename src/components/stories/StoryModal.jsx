@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import Avatar from '../Avatar.jsx';
+import TestimonialModal from '../TestimonialModal.jsx';
 import { renderMarkdown } from '../../lib/util.js';
 import { fetchTestimonialsByProject } from '../../lib/data.js';
 import { exportStoryPdf, exportStoryPptx } from '../../lib/storyExport.js';
@@ -9,16 +10,18 @@ const PER_PAGE = 4;
 export default function StoryModal({ story, onClose }) {
   const [people, setPeople] = useState([]);
   const [page, setPage] = useState(0);
+  const [openGroup, setOpenGroup] = useState(null);
 
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    // Let the nested testimonial modal own Escape while it is open.
+    const onKey = (e) => e.key === 'Escape' && !openGroup && onClose();
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [onClose, openGroup]);
 
   useEffect(() => {
     let alive = true;
@@ -38,8 +41,13 @@ export default function StoryModal({ story, onClose }) {
   const client = story.clientName || story.clientAlias || 'Client';
   const pageCount = Math.ceil(people.length / PER_PAGE);
   const shown = people.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+  // Keep the grid a constant 4 cells across pages so the modal doesn't resize.
+  const cells = pageCount > 1
+    ? [...shown, ...Array(PER_PAGE - shown.length).fill(null)]
+    : shown;
 
   return (
+    <>
     <div class="modal-backdrop" onClick={onClose}>
       <div class="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div class="modal-header">
@@ -114,18 +122,27 @@ export default function StoryModal({ story, onClose }) {
             <section class="story-section story-people">
               <h3>Worked on this project ({people.length})</h3>
               <div class="story-people-grid">
-                {shown.map((t) => (
-                  <div class="story-person" key={t.id}>
-                    <div class="story-person-head">
-                      <Avatar person={t.person} />
-                      <div class="story-person-main">
-                        <strong>{t.person.name}</strong>
-                        <div class="comment-meta">{t.person.title}</div>
+                {cells.map((t, i) =>
+                  t ? (
+                    <div class="story-person" key={t.id}>
+                      <div class="story-person-head">
+                        <Avatar person={t.person} />
+                        <div class="story-person-main">
+                          <button
+                            class="link-btn story-person-name"
+                            onClick={() => setOpenGroup({ person: t.person, items: [t] })}
+                          >
+                            {t.person.name}
+                          </button>
+                          <div class="comment-meta">{t.person.title}</div>
+                        </div>
                       </div>
+                      <p class="story-person-summary">{t.summary}</p>
                     </div>
-                    <p class="story-person-summary">{t.summary}</p>
-                  </div>
-                ))}
+                  ) : (
+                    <div class="story-person is-empty" aria-hidden="true" key={`empty-${i}`} />
+                  )
+                )}
               </div>
               {pageCount > 1 && (
                 <div class="story-people-pager">
@@ -144,5 +161,10 @@ export default function StoryModal({ story, onClose }) {
         </div>
       </div>
     </div>
+
+    {openGroup && (
+      <TestimonialModal group={openGroup} moderationOn={false} onClose={() => setOpenGroup(null)} />
+    )}
+    </>
   );
 }

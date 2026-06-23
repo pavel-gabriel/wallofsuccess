@@ -76,6 +76,7 @@ export default function StoriesWall() {
         resultCount={searched.length}
         query={query}
         onQuery={setQuery}
+        noun={{ one: 'story', other: 'stories' }}
       />
 
       {searched.length === 0 ? (

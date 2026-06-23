@@ -315,6 +315,7 @@ create policy story_requests_admin on public.story_requests for all
 -- Anonymized public view: approved + is_public only, no client_name, with
 -- metrics/contributors/tags pre-joined as JSON. Runs with the view owner's
 -- rights so it bypasses the base-table RLS; anon is granted the view only.
+drop view if exists public.public_success_stories;
 create or replace view public.public_success_stories as
 select
   s.id, s.title, s.project_name, s.client_alias, s.industry, s.summary,
