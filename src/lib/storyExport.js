@@ -87,49 +87,83 @@ export function exportStoryPdf(story) {
   w.document.close();
 }
 
-// Editable 16:9 slide as a real .pptx (pptxgenjs, loaded on demand). Laid out in
-// fixed, non-overlapping bands; long fields are trimmed to slide-friendly snippets.
+// Editable 16:9 deck as a real .pptx (pptxgenjs, loaded on demand). Long
+// sections flow across multiple slides so nothing is clipped.
 export async function exportStoryPptx(story) {
   const { default: PptxGenJS } = await import('pptxgenjs');
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: 'WIDE', width: 13.33, height: 7.5 });
   pptx.layout = 'WIDE';
-  const slide = pptx.addSlide();
-  slide.background = { color: '192B37' };
 
-  slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.55, w: 1.2, h: 0.12, fill: { color: 'FF5640' } });
-  slide.addText('ENDAVA  ·  SUCCESS STORY', {
-    x: 0.6, y: 0.72, w: 12.1, h: 0.3, fontFace: 'Arial', fontSize: 11, color: 'A3AAAF', charSpacing: 2,
-  });
-  slide.addText(trunc(story.title || 'Success story', 90), {
-    x: 0.6, y: 1.15, w: 12.1, h: 0.9, fontFace: 'Arial', fontSize: 30, bold: true, color: 'FFFFFF', valign: 'top',
+  // Branded chrome shared by every slide.
+  const header = (slide) => {
+    slide.background = { color: '192B37' };
+    slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 0.55, w: 1.2, h: 0.12, fill: { color: 'FF5640' } });
+    slide.addText('ENDAVA  ·  SUCCESS STORY', {
+      x: 0.6, y: 0.72, w: 12.1, h: 0.3, fontFace: 'Arial', fontSize: 11, color: 'A3AAAF', charSpacing: 2,
+    });
+  };
+
+  // --- cover slide ---
+  const cover = pptx.addSlide();
+  header(cover);
+  cover.addText(trunc(story.title || 'Success story', 90), {
+    x: 0.6, y: 1.15, w: 12.1, h: 1.0, fontFace: 'Arial', fontSize: 30, bold: true, color: 'FFFFFF', valign: 'top',
   });
   const meta = [clientOf(story), story.industry, story.duration].filter(Boolean).join('    ·    ');
-  slide.addText(meta, { x: 0.6, y: 2.1, w: 12.1, h: 0.4, fontFace: 'Arial', fontSize: 14, color: 'A3AAAF' });
-
+  cover.addText(meta, { x: 0.6, y: 2.2, w: 12.1, h: 0.4, fontFace: 'Arial', fontSize: 14, color: 'A3AAAF' });
   (story.metrics || []).slice(0, 4).forEach((m, i) => {
     const x = 0.6 + i * 3.1;
-    slide.addText(trunc(m.value, 12), { x, y: 2.75, w: 3, h: 0.55, fontFace: 'Arial', fontSize: 26, bold: true, color: 'FF5640' });
-    slide.addText(trunc(m.label, 28), { x, y: 3.35, w: 3, h: 0.4, fontFace: 'Arial', fontSize: 12, color: 'D1D5D7' });
+    cover.addText(trunc(m.value, 12), { x, y: 2.95, w: 3, h: 0.55, fontFace: 'Arial', fontSize: 26, bold: true, color: 'FF5640' });
+    cover.addText(trunc(m.label, 28), { x, y: 3.55, w: 3, h: 0.4, fontFace: 'Arial', fontSize: 12, color: 'D1D5D7' });
   });
+  if (story.summary) {
+    cover.addText(trunc(story.summary, 300), {
+      x: 0.6, y: 4.5, w: 12.1, h: 2.2, fontFace: 'Arial', fontSize: 16, color: 'E8EAEB', valign: 'top', lineSpacingMultiple: 1.2,
+    });
+  }
 
-  const rows = [
+  // --- section slides, paginated so text never overflows the content box ---
+  const CONTENT = { x: 0.6, y: 1.7, w: 12.1, h: 5.0 };
+  const CHARS_PER_LINE = 95; // approx wrapped width at Arial 16 in 12.1"
+  const LINES_PER_SLIDE = 20;
+
+  // Break a body into slide-sized chunks (arrays of source lines).
+  const chunk = (body) => {
+    const pages = [];
+    let cur = [];
+    let used = 0;
+    for (const raw of String(body).replace(/\r/g, '').split('\n')) {
+      const cost = Math.max(1, Math.ceil(raw.length / CHARS_PER_LINE));
+      if (used + cost > LINES_PER_SLIDE && cur.length) {
+        pages.push(cur);
+        cur = [];
+        used = 0;
+      }
+      cur.push(raw);
+      used += cost;
+    }
+    if (cur.length) pages.push(cur);
+    return pages.length ? pages : [['']];
+  };
+
+  const sections = [
     ['Challenge', story.challenge],
     ['Solution', story.solution],
     ['Results', story.results],
-  ].filter(([, v]) => v);
-  const lines = [];
-  for (const [label, val] of rows) {
-    lines.push({ text: `${label}  `, options: { bold: true, color: 'FF5640' } });
-    lines.push({ text: trunc(val, 180), options: { color: 'E8EAEB', breakLine: true } });
-  }
-  if (story.summary && !lines.length) {
-    lines.push({ text: trunc(story.summary, 220), options: { color: 'E8EAEB' } });
-  }
-  if (lines.length) {
-    slide.addText(lines, {
-      x: 0.6, y: 4.15, w: 12.1, h: 2.7, fontFace: 'Arial', fontSize: 13,
-      color: 'E8EAEB', lineSpacingMultiple: 1.15, valign: 'top', fit: 'shrink',
+  ].filter(([, v]) => String(v || '').trim());
+
+  for (const [name, body] of sections) {
+    const pages = chunk(body);
+    pages.forEach((linesForPage, i) => {
+      const slide = pptx.addSlide();
+      header(slide);
+      slide.addText(i === 0 ? name : `${name} (cont.)`, {
+        x: 0.6, y: 1.05, w: 12.1, h: 0.5, fontFace: 'Arial', fontSize: 20, bold: true, color: 'FF5640',
+      });
+      slide.addText(linesForPage.join('\n'), {
+        ...CONTENT, fontFace: 'Arial', fontSize: 16, color: 'E8EAEB', valign: 'top', lineSpacingMultiple: 1.2,
+      });
     });
   }
 

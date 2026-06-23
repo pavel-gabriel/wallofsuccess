@@ -11,6 +11,8 @@ export {
   postComment,
   fetchSuccessStories,
   fetchSuccessStory,
+  fetchTestimonialsByProject,
+  fetchProjectNames,
 } from '@backend';
 
 // Group testimonials by person so a person with multiple entries renders as one

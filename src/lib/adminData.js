@@ -19,4 +19,5 @@ export {
   updateStory,
   deleteStory,
   setStoryChildren,
+  fetchAdminProjectNames,
 } from '@backend';

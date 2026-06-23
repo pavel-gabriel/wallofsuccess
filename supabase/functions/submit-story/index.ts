@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
 
       const base = {
         title,
+        project_name: String(payload.project_name || '').trim().slice(0, 200),
         client_name: String(payload.client_name || '').trim().slice(0, 200),
         client_alias: String(payload.client_alias || '').trim().slice(0, 200),
         industry: String(payload.industry || '').trim().slice(0, 120),

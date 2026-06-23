@@ -235,6 +235,7 @@ on conflict (category, value) do nothing;
 create table if not exists public.success_stories (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  project_name text default '',       -- link key to testimonials.project_name
   client_name text default '',        -- full name, internal only (never exposed to anon)
   client_alias text default '',       -- public-safe label
   industry text default '',
@@ -250,6 +251,7 @@ create table if not exists public.success_stories (
   approved_at timestamptz
 );
 create index if not exists stories_status_idx on public.success_stories (status);
+alter table public.success_stories add column if not exists project_name text default '';
 
 create table if not exists public.story_metrics (
   id uuid primary key default gen_random_uuid(),
@@ -315,7 +317,7 @@ create policy story_requests_admin on public.story_requests for all
 -- rights so it bypasses the base-table RLS; anon is granted the view only.
 create or replace view public.public_success_stories as
 select
-  s.id, s.title, s.client_alias, s.industry, s.summary,
+  s.id, s.title, s.project_name, s.client_alias, s.industry, s.summary,
   s.challenge, s.solution, s.results, s.duration, s.created_at, s.approved_at,
   coalesce((select json_agg(json_build_object('label', m.label, 'value', m.value) order by m.sort_order)
             from public.story_metrics m where m.story_id = s.id), '[]') as metrics,

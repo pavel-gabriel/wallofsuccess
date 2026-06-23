@@ -58,6 +58,7 @@ function shapeStory(s, { full }) {
   const out = {
     id: s.id,
     title: s.title,
+    projectName: s.project_name,
     clientAlias: s.client_alias,
     industry: s.industry,
     summary: s.summary,
@@ -123,9 +124,17 @@ app.get('/healthz', wrap(async (_req, res) => {
 }));
 
 // ======================= PUBLIC API =======================
-app.get('/api/testimonials', wrap(async (_req, res) => {
+app.get('/api/testimonials', wrap(async (req, res) => {
+  const project = String(req.query.project || '').trim();
+  const params = [];
+  let where = `where t.status = 'approved'`;
+  if (project) {
+    params.push(project);
+    where += ` and lower(t.project_name) = lower($${params.length})`;
+  }
   const { rows } = await query(
-    `${TESTIMONIAL_SELECT} where t.status = 'approved' ${TESTIMONIAL_GROUP} order by t.approved_at desc nulls last`
+    `${TESTIMONIAL_SELECT} ${where} ${TESTIMONIAL_GROUP} order by t.approved_at desc nulls last`,
+    params
   );
   res.json(rows);
 }));
@@ -145,6 +154,22 @@ app.get('/api/success-stories/:id', wrap(async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
   res.json(shapeStory(rows[0], { full: false }));
+}));
+
+// Distinct project names for the cross-link dropdowns (public scope).
+app.get('/api/project-names', wrap(async (_req, res) => {
+  const stories = await query(
+    `select distinct project_name from success_stories
+       where status = 'approved' and is_public and coalesce(project_name,'') <> '' order by project_name`
+  );
+  const tms = await query(
+    `select distinct project_name from testimonials
+       where status = 'approved' and coalesce(project_name,'') <> '' order by project_name`
+  );
+  res.json({
+    storyProjects: stories.rows.map((r) => r.project_name),
+    testimonialProjects: tms.rows.map((r) => r.project_name),
+  });
 }));
 
 app.get('/api/filter-options', wrap(async (_req, res) => {
@@ -328,6 +353,7 @@ app.post('/api/fn/submit-story', wrap(async (req, res) => {
     if (!title) return res.status(400).json({ error: 'A project title is required.' });
     const vals = [
       title,
+      String(f.project_name || '').trim().slice(0, 200),
       String(f.client_name || '').trim().slice(0, 200),
       String(f.client_alias || '').trim().slice(0, 200),
       String(f.industry || '').trim().slice(0, 120),
@@ -342,8 +368,8 @@ app.post('/api/fn/submit-story', wrap(async (req, res) => {
       await client.query('begin');
       const sid = (await client.query(
         `insert into success_stories
-           (title, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',false) returning id`,
+           (title, project_name, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',false) returning id`,
         vals
       )).rows[0].id;
       await insertStoryMetrics(client, sid, f.metrics);
@@ -539,6 +565,20 @@ admin.put('/settings/:key', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Distinct project names across ALL stories + testimonials (admin scope).
+admin.get('/project-names', wrap(async (_req, res) => {
+  const stories = await query(
+    `select distinct project_name from success_stories where coalesce(project_name,'') <> '' order by project_name`
+  );
+  const tms = await query(
+    `select distinct project_name from testimonials where coalesce(project_name,'') <> '' order by project_name`
+  );
+  res.json({
+    storyProjects: stories.rows.map((r) => r.project_name),
+    testimonialProjects: tms.rows.map((r) => r.project_name),
+  });
+}));
+
 // --- admin: success stories ---
 admin.get('/success-stories', wrap(async (_req, res) => {
   const { rows } = await query(`${STORY_SELECT} order by s.created_at desc`);
@@ -559,10 +599,11 @@ admin.post('/success-stories', wrap(async (req, res) => {
     await client.query('begin');
     const sid = (await client.query(
       `insert into success_stories
-         (title, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
+         (title, project_name, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
       [
         String(f.title).trim().slice(0, 200),
+        String(f.project_name || '').trim().slice(0, 200),
         String(f.client_name || '').trim().slice(0, 200),
         String(f.client_alias || '').trim().slice(0, 200),
         String(f.industry || '').trim().slice(0, 120),
@@ -589,7 +630,7 @@ admin.post('/success-stories', wrap(async (req, res) => {
 }));
 
 admin.patch('/success-stories/:id', wrap(async (req, res) => {
-  const allowed = ['title', 'client_name', 'client_alias', 'industry', 'summary',
+  const allowed = ['title', 'project_name', 'client_name', 'client_alias', 'industry', 'summary',
     'challenge', 'solution', 'results', 'duration', 'status', 'is_public'];
   const sets = [];
   const vals = [];

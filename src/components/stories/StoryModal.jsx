@@ -1,8 +1,15 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import Avatar from '../Avatar.jsx';
 import { renderMarkdown } from '../../lib/util.js';
+import { fetchTestimonialsByProject } from '../../lib/data.js';
 import { exportStoryPdf, exportStoryPptx } from '../../lib/storyExport.js';
 
+const PER_PAGE = 4;
+
 export default function StoryModal({ story, onClose }) {
+  const [people, setPeople] = useState([]);
+  const [page, setPage] = useState(0);
+
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
@@ -13,8 +20,24 @@ export default function StoryModal({ story, onClose }) {
     };
   }, [onClose]);
 
+  useEffect(() => {
+    let alive = true;
+    setPeople([]);
+    setPage(0);
+    if (story?.projectName) {
+      fetchTestimonialsByProject(story.projectName)
+        .then((t) => alive && setPeople(t))
+        .catch(() => alive && setPeople([]));
+    }
+    return () => {
+      alive = false;
+    };
+  }, [story?.projectName]);
+
   if (!story) return null;
   const client = story.clientName || story.clientAlias || 'Client';
+  const pageCount = Math.ceil(people.length / PER_PAGE);
+  const shown = people.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
 
   return (
     <div class="modal-backdrop" onClick={onClose}>
@@ -85,6 +108,33 @@ export default function StoryModal({ story, onClose }) {
                 <span class="tag" key={t.id}>{t.value}</span>
               ))}
             </div>
+          )}
+
+          {people.length > 0 && (
+            <section class="story-section story-people">
+              <h3>Worked on this project ({people.length})</h3>
+              <div class="story-people-grid">
+                {shown.map((t) => (
+                  <div class="story-person" key={t.id}>
+                    <div class="story-person-head">
+                      <Avatar person={t.person} />
+                      <div class="story-person-main">
+                        <strong>{t.person.name}</strong>
+                        <div class="comment-meta">{t.person.title}</div>
+                      </div>
+                    </div>
+                    <p class="story-person-summary">{t.summary}</p>
+                  </div>
+                ))}
+              </div>
+              {pageCount > 1 && (
+                <div class="story-people-pager">
+                  <button class="btn btn-sm btn-secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>
+                  <span class="comment-meta">Page {page + 1} of {pageCount}</span>
+                  <button class="btn btn-sm btn-secondary" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>Next ›</button>
+                </div>
+              )}
+            </section>
           )}
 
           <div class="story-export">
