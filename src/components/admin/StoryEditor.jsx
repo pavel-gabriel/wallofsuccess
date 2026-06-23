@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { createStory, updateStory, setStoryChildren } from '../../lib/adminData.js';
+import { useEffect, useState } from 'preact/hooks';
+import { createStory, updateStory, setStoryChildren, fetchAdminProjectNames } from '../../lib/adminData.js';
 
 const CATEGORY_LABELS = {
   cloud_provider: 'Cloud provider', technology: 'Technology', domain: 'Domain',
@@ -11,6 +11,7 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
   const editing = Boolean(story?.id);
   const [f, setF] = useState({
     title: story?.title || '',
+    project_name: story?.projectName || '',
     client_name: story?.clientName || '',
     client_alias: story?.clientAlias || '',
     industry: story?.industry || '',
@@ -29,8 +30,13 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
       : [{ name: '', role: '', contribution: '' }]
   );
   const [tags, setTags] = useState(new Set((story?.tags || []).map((t) => t.id)));
+  const [projectOptions, setProjectOptions] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchAdminProjectNames().then((p) => setProjectOptions(p.testimonialProjects || [])).catch(() => {});
+  }, []);
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.currentTarget.value }));
   const grouped = {};
@@ -78,6 +84,11 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
   return (
     <form class="story-editor" onSubmit={save}>
       <div class="field"><label>Project title</label><input type="text" value={f.title} onInput={set('title')} required /></div>
+      <div class="field">
+        <label>Project name <span class="hint">(links testimonials — pick an existing one or type your own)</span></label>
+        <input type="text" list="se-project-names" value={f.project_name} onInput={set('project_name')} />
+        <datalist id="se-project-names">{projectOptions.map((p) => <option value={p} key={p} />)}</datalist>
+      </div>
       <div class="grid-2">
         <div class="field"><label>Client name <span class="hint">(internal)</span></label><input type="text" value={f.client_name} onInput={set('client_name')} /></div>
         <div class="field"><label>Client alias <span class="hint">(public)</span></label><input type="text" value={f.client_alias} onInput={set('client_alias')} /></div>

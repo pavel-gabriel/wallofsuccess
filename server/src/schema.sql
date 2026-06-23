@@ -83,6 +83,7 @@ create table if not exists settings (
 create table if not exists success_stories (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  project_name text default '',       -- link key to testimonials.project_name
   client_name text default '',        -- full name, internal only
   client_alias text default '',       -- public-safe label, e.g. "Tier-1 EU bank"
   industry text default '',
@@ -98,6 +99,8 @@ create table if not exists success_stories (
   approved_at timestamptz
 );
 create index if not exists stories_status_idx on success_stories (status);
+-- Idempotent add for databases created before project_name existed.
+alter table success_stories add column if not exists project_name text default '';
 
 create table if not exists story_metrics (
   id uuid primary key default gen_random_uuid(),

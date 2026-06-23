@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured, fetchFilterOptions } from '../lib/data.js';
+import { isConfigured, fetchFilterOptions, fetchProjectNames } from '../lib/data.js';
 import { callFunction } from '../lib/functions.js';
 
 const CATEGORY_LABELS = {
@@ -19,12 +19,13 @@ export default function StoryForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const [f, setF] = useState({
-    title: '', client_name: '', client_alias: '', industry: '', duration: '',
+    title: '', project_name: '', client_name: '', client_alias: '', industry: '', duration: '',
     summary: '', challenge: '', solution: '', results: '',
   });
   const [metrics, setMetrics] = useState([{ label: '', value: '' }]);
   const [contributors, setContributors] = useState([{ name: '', role: '', contribution: '' }]);
   const [tags, setTags] = useState(new Set());
+  const [projectOptions, setProjectOptions] = useState([]);
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.currentTarget.value }));
 
@@ -43,14 +44,17 @@ export default function StoryForm() {
     Promise.all([
       callFunction('submit-story', { action: 'validate', token: t }),
       fetchFilterOptions(),
+      fetchProjectNames().catch(() => ({ testimonialProjects: [] })),
     ])
-      .then(([res, opts]) => {
+      .then(([res, opts, projects]) => {
         setF((p) => ({
           ...p,
           client_name: res.request?.client_name || '',
           title: res.request?.project_name || '',
+          project_name: res.request?.project_name || '',
         }));
         setOptions(opts);
+        setProjectOptions(projects.testimonialProjects || []);
         setPhase('form');
       })
       .catch((e) => {
@@ -132,6 +136,9 @@ export default function StoryForm() {
       <form onSubmit={submit}>
         <div class="field"><label>Project title</label>
           <input type="text" value={f.title} onInput={set('title')} required /></div>
+        <div class="field"><label>Project name <span class="hint">(links testimonials — pick an existing one or type your own)</span></label>
+          <input type="text" list="storyform-projects" value={f.project_name} onInput={set('project_name')} />
+          <datalist id="storyform-projects">{projectOptions.map((p) => <option value={p} key={p} />)}</datalist></div>
         <div class="field"><label>Client name <span class="hint">(internal only)</span></label>
           <input type="text" value={f.client_name} onInput={set('client_name')} /></div>
         <div class="field"><label>Client alias <span class="hint">(public, e.g. "Tier-1 EU bank")</span></label>

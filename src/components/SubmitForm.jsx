@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured, fetchFilterOptions } from '../lib/data.js';
+import { isConfigured, fetchFilterOptions, fetchProjectNames } from '../lib/data.js';
 import { callFunction, fileToDataUrl } from '../lib/functions.js';
 
 const CATEGORY_LABELS = {
@@ -26,6 +26,7 @@ export default function SubmitForm() {
   const [body, setBody] = useState('');
   const [selectedTags, setSelectedTags] = useState(new Set());
   const [photoFile, setPhotoFile] = useState(null);
+  const [storyProjects, setStoryProjects] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -43,12 +44,14 @@ export default function SubmitForm() {
     Promise.all([
       callFunction('submit-testimonial', { action: 'validate', token: t }),
       fetchFilterOptions(),
+      fetchProjectNames().catch(() => ({ storyProjects: [] })),
     ])
-      .then(([res, opts]) => {
+      .then(([res, opts, projects]) => {
         setRequest(res.request);
         setName(res.request?.person_name || '');
         setProject(res.request?.project_name || '');
         setOptions(opts);
+        setStoryProjects(projects.storyProjects || []);
         setPhase('form');
       })
       .catch((e) => {
@@ -152,8 +155,11 @@ export default function SubmitForm() {
           <input type="text" value={title} onInput={(e) => setTitle(e.currentTarget.value)} />
         </div>
         <div class="field">
-          <label>Project</label>
-          <input type="text" value={project} onInput={(e) => setProject(e.currentTarget.value)} />
+          <label>Project <span class="hint">(pick the project if it's already a story, or type your own)</span></label>
+          <input type="text" list="sf-story-projects" value={project} onInput={(e) => setProject(e.currentTarget.value)} />
+          <datalist id="sf-story-projects">
+            {storyProjects.map((p) => <option value={p} key={p} />)}
+          </datalist>
         </div>
         <div class="field">
           <label>Profile photo <span class="hint">(optional, max 2 MB)</span></label>

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'preact/hooks';
-import { updateTestimonial, updatePerson, setTestimonialTags } from '../../lib/adminData.js';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { updateTestimonial, updatePerson, setTestimonialTags, fetchAdminProjectNames } from '../../lib/adminData.js';
 
 const catLabel = (c) => c.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
@@ -12,8 +12,13 @@ export default function TestimonialEditor({ testimonial: t, options, onSaved, on
   const [summary, setSummary] = useState(t.summary || '');
   const [body, setBody] = useState(t.body || '');
   const [tagIds, setTagIds] = useState(new Set((t.tags || []).map((x) => x.id)));
+  const [storyProjects, setStoryProjects] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchAdminProjectNames().then((p) => setStoryProjects(p.storyProjects || [])).catch(() => {});
+  }, []);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -59,8 +64,11 @@ export default function TestimonialEditor({ testimonial: t, options, onSaved, on
         <input type="text" value={title} onInput={(e) => setTitle(e.currentTarget.value)} />
       </div>
       <div class="field">
-        <label>Project</label>
-        <input type="text" value={project} onInput={(e) => setProject(e.currentTarget.value)} />
+        <label>Project <span class="hint">(pick an existing story project or type your own)</span></label>
+        <input type="text" list="te-story-projects" value={project} onInput={(e) => setProject(e.currentTarget.value)} />
+        <datalist id="te-story-projects">
+          {storyProjects.map((p) => <option value={p} key={p} />)}
+        </datalist>
       </div>
       <div class="field">
         <label>Summary</label>

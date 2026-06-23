@@ -86,6 +86,38 @@ export async function fetchComments(testimonialId) {
   if (error) throw error;
   return data || [];
 }
+export async function fetchTestimonialsByProject(project) {
+  if (!supabase || !project) return [];
+  const { data, error } = await supabase
+    .from('testimonials')
+    .select(SELECT_FULL)
+    .eq('status', 'approved')
+    .ilike('project_name', project)
+    .order('approved_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(normalize);
+}
+
+function distinct(rows) {
+  return [...new Set((rows || []).map((r) => (r.project_name || '').trim()).filter(Boolean))].sort();
+}
+export async function fetchProjectNames() {
+  if (!supabase) return { storyProjects: [], testimonialProjects: [] };
+  const [s, t] = await Promise.all([
+    supabase.from('public_success_stories').select('project_name'),
+    supabase.from('testimonials').select('project_name').eq('status', 'approved'),
+  ]);
+  return { storyProjects: distinct(s.data), testimonialProjects: distinct(t.data) };
+}
+export async function fetchAdminProjectNames() {
+  if (!supabase) return { storyProjects: [], testimonialProjects: [] };
+  const [s, t] = await Promise.all([
+    supabase.from('success_stories').select('project_name'),
+    supabase.from('testimonials').select('project_name'),
+  ]);
+  return { storyProjects: distinct(s.data), testimonialProjects: distinct(t.data) };
+}
+
 export async function postComment(testimonialId, { author_name, body }) {
   if (!supabase) throw new Error('Backend not configured.');
   const ins = await supabase
@@ -180,6 +212,7 @@ function normalizePublicStory(s) {
   return {
     id: s.id,
     title: s.title,
+    projectName: s.project_name,
     clientAlias: s.client_alias,
     industry: s.industry,
     summary: s.summary,
@@ -199,6 +232,7 @@ function normalizeStoryRow(s) {
   return {
     id: s.id,
     title: s.title,
+    projectName: s.project_name,
     clientName: s.client_name,
     clientAlias: s.client_alias,
     industry: s.industry,

@@ -35,6 +35,16 @@ export async function fetchSettings() {
 export async function fetchComments(testimonialId) {
   return (await api(`/testimonials/${testimonialId}/comments`)) || [];
 }
+export async function fetchTestimonialsByProject(project) {
+  if (!project) return [];
+  return ((await api(`/testimonials?project=${encodeURIComponent(project)}`)) || []).map(normalize);
+}
+export async function fetchProjectNames() {
+  return (await api('/project-names')) || { storyProjects: [], testimonialProjects: [] };
+}
+export async function fetchAdminProjectNames() {
+  return (await api('/admin/project-names', { auth: true })) || { storyProjects: [], testimonialProjects: [] };
+}
 export async function postComment(testimonialId, { author_name, body }) {
   return api('/comments', {
     method: 'POST',
