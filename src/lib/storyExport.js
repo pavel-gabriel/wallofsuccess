@@ -32,6 +32,17 @@ function tagsHtml(story) {
   if (!story.tags?.length) return '';
   return `<div class="tags">${story.tags.map((t) => `<span>${escapeHtml(t.value)}</span>`).join('')}</div>`;
 }
+function teamHtml(story) {
+  if (!story.contributors?.length) return '';
+  const items = story.contributors
+    .map((c) => {
+      const head = [c.name || 'Contributor', c.role].filter(Boolean).map(escapeHtml).join(' — ');
+      const note = c.contribution ? `<span class="role">${escapeHtml(c.contribution)}</span>` : '';
+      return `<li><b>${head}</b>${note}</li>`;
+    })
+    .join('');
+  return `<section><h2>Team</h2><ul class="team">${items}</ul></section>`;
+}
 function section(title, body) {
   return body ? `<section><h2>${title}</h2>${para(body)}</section>` : '';
 }
@@ -64,6 +75,9 @@ export function exportStoryPdf(story) {
   p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
   .tags { margin-top: 14px; }
   .tags span { display:inline-block; background:#e8eaeb; border-radius:999px; padding:2px 9px; font-size:11px; margin:0 4px 4px 0; }
+  ul.team { list-style: none; padding: 0; margin: 0; }
+  ul.team li { font-size: 13px; line-height: 1.4; margin: 0 0 6px; }
+  ul.team .role { display:block; color:#5e6a73; font-size:12px; }
   @media screen { body { background:#f3f3f4; } .sheet { max-width: 800px; margin: 16px auto; background:#fff; box-shadow:0 6px 24px rgba(0,0,0,.15); padding:32px; } }
 </style></head><body>
   <div class="sheet">
@@ -78,6 +92,7 @@ export function exportStoryPdf(story) {
     ${section('Challenge', story.challenge)}
     ${section('Solution', story.solution)}
     ${section('Results', story.results)}
+    ${teamHtml(story)}
     ${tagsHtml(story)}
   </div>
   <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 300); };</script>
@@ -152,6 +167,17 @@ export async function exportStoryPptx(story) {
     ['Solution', story.solution],
     ['Results', story.results],
   ].filter(([, v]) => String(v || '').trim());
+
+  // The team flows as its own section/slide(s), reusing the chunk() pagination.
+  if (story.contributors?.length) {
+    const teamText = story.contributors
+      .map((c) => {
+        const head = [c.name || 'Contributor', c.role].filter(Boolean).join(' — ');
+        return c.contribution ? `•  ${head}\n    ${c.contribution}` : `•  ${head}`;
+      })
+      .join('\n');
+    sections.push(['Team', teamText]);
+  }
 
   for (const [name, body] of sections) {
     const pages = chunk(body);
