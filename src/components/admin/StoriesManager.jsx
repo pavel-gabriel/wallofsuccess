@@ -5,7 +5,14 @@ import { exportStoryPdf, exportStoryPptx } from '../../lib/storyExport.js';
 import StoryEditor from './StoryEditor.jsx';
 import StoryModal from '../stories/StoryModal.jsx';
 
-const BADGE = { pending: 'badge-pending', approved: 'badge-approved', archived: 'badge-archived' };
+// Unified lifecycle derived from (status, is_public): one coherent state instead
+// of two axes that can contradict each other.
+function lifecycle(s) {
+  if (s.status === 'approved' && s.isPublic) return { key: 'published', label: 'Published', badge: 'badge-approved' };
+  if (s.status === 'archived') return { key: 'archived', label: 'Archived', badge: 'badge-archived' };
+  return { key: 'draft', label: 'Draft', badge: 'badge-pending' };
+}
+const TAB_STATUS = { draft: 'pending', published: 'approved', archived: 'archived' };
 
 export default function StoriesManager({ options }) {
   const [stories, setStories] = useState([]);
@@ -42,7 +49,7 @@ export default function StoriesManager({ options }) {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return stories.filter((s) => {
-      if (filter !== 'all' && s.status !== filter) return false;
+      if (filter !== 'all' && lifecycle(s).key !== filter) return false;
       if (!q) return true;
       return `${s.title || ''} ${s.clientName || ''} ${s.clientAlias || ''} ${s.projectName || ''} ${s.industry || ''}`
         .toLowerCase()
@@ -78,7 +85,7 @@ export default function StoriesManager({ options }) {
       )}
 
       <div class="admin-tabs" style={{ marginTop: '1rem' }}>
-        {['all', 'pending', 'approved', 'archived'].map((s) => (
+        {['all', 'draft', 'published', 'archived'].map((s) => (
           <button key={s} class={`admin-tab ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>
             {s[0].toUpperCase() + s.slice(1)}
           </button>
@@ -95,7 +102,7 @@ export default function StoriesManager({ options }) {
       />
 
       <p class="comment-meta" style={{ marginTop: '0.5rem' }}>
-        Stories appear on the public Success Stories page only when <strong>Published</strong> (approved&nbsp;+&nbsp;public).
+        Only <strong>Published</strong> stories appear on the public Success Stories page. Archiving removes them.
       </p>
       {error && <div class="notice notice-error">{error}</div>}
       {shown.length === 0 && <p class="comment-meta">Nothing here.</p>}
@@ -105,24 +112,20 @@ export default function StoriesManager({ options }) {
           <div class="row">
             <div class="row-main">
               <button class="link-btn" style={{ fontWeight: 700 }} onClick={() => setPreview(s)}>{s.title}</button>{' '}
-              <span class={`badge ${BADGE[s.status]}`}>{s.status}</span>
-              {s.isPublic ? <span class="badge badge-approved" title="Visible publicly (anonymized)">public</span> : <span class="badge badge-archived">internal</span>}
+              <span class={`badge ${lifecycle(s).badge}`}>{lifecycle(s).label}</span>
               <div class="comment-meta">
                 {s.clientName || s.clientAlias || '—'}{s.industry ? ` · ${s.industry}` : ''}
               </div>
               {s.summary && <p style={{ margin: '0.4rem 0' }}>{s.summary}</p>}
             </div>
             <div class="row-actions">
-              {s.status !== 'approved' && (
-                <button class="btn btn-sm" disabled={busy === s.id} onClick={() => act(s.id, () => updateStory(s.id, { status: 'approved' }))}>Approve</button>
+              {lifecycle(s).key === 'published' ? (
+                <button class="btn btn-sm btn-secondary" disabled={busy === s.id}
+                  onClick={() => act(s.id, () => updateStory(s.id, { status: 'archived', is_public: false }))}>Archive</button>
+              ) : (
+                <button class="btn btn-sm" disabled={busy === s.id}
+                  onClick={() => act(s.id, () => updateStory(s.id, { status: 'approved', is_public: true }))}>Publish</button>
               )}
-              {s.status === 'approved' && (
-                <button class="btn btn-sm btn-secondary" disabled={busy === s.id} onClick={() => act(s.id, () => updateStory(s.id, { status: 'archived' }))}>Archive</button>
-              )}
-              <button class="btn btn-sm" disabled={busy === s.id}
-                onClick={() => act(s.id, () => updateStory(s.id, s.isPublic ? { is_public: false } : { is_public: true, status: 'approved' }))}>
-                {s.isPublic ? 'Unpublish' : 'Publish'}
-              </button>
               <button class="btn btn-sm btn-secondary" onClick={() => setEditing(editing === s.id ? null : s.id)}>{editing === s.id ? 'Close' : 'Edit'}</button>
               <button class="btn btn-sm btn-secondary" onClick={() => exportStoryPdf(s)}>PDF</button>
               <button class="btn btn-sm btn-secondary" onClick={() => exportStoryPptx(s)}>Slide</button>
