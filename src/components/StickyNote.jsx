@@ -1,10 +1,12 @@
 import Avatar from './Avatar.jsx';
-import { noteColor, noteTilt } from '../lib/util.js';
+import { noteColor, noteTilt, countLabel } from '../lib/util.js';
+import { distinctProjectCount } from '../lib/data.js';
 
-// `group` = { person, items: [...] }
+// `group` = { person, items: [...] }  (items pre-sorted pinned-first)
 export default function StickyNote({ group, onOpen }) {
   const { person, items } = group;
   const primary = items[0];
+  const projectsLabel = countLabel(distinctProjectCount(items), 'projects');
   const color = noteColor(person.id);
   const tilt = noteTilt(person.id);
 
@@ -29,7 +31,7 @@ export default function StickyNote({ group, onOpen }) {
       role="button"
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(group)}
     >
-      {items.length > 1 && <span class="note-count">{items.length} testimonials</span>}
+      {projectsLabel && <span class="note-count">{projectsLabel}</span>}
       <div class="note-head">
         <Avatar person={person} />
         <div>

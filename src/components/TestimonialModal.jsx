@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import Avatar from './Avatar.jsx';
 import Comments from './Comments.jsx';
-import { renderMarkdown, formatDate } from '../lib/util.js';
+import { renderMarkdown, formatDate, formatPeriod } from '../lib/util.js';
 
 // `group` = { person, items: [testimonial, ...] }
 export default function TestimonialModal({ group, moderationOn, onClose }) {
@@ -48,7 +48,14 @@ export default function TestimonialModal({ group, moderationOn, onClose }) {
         )}
 
         <div class="modal-body" key={active.id}>
-          {active.projectName && <div class="testimonial-project">{active.projectName}</div>}
+          {active.projectName && (
+            <div class="testimonial-project">
+              {active.projectName}
+              {formatPeriod(active.periodStart, active.periodEnd) && (
+                <span class="testimonial-period"> · {formatPeriod(active.periodStart, active.periodEnd)}</span>
+              )}
+            </div>
+          )}
           <div
             class="prose"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(active.body || active.summary) }}
