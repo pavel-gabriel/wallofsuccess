@@ -1,16 +1,19 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import Avatar from '../Avatar.jsx';
 import TestimonialEditor from './TestimonialEditor.jsx';
+import TestimonialModal from '../TestimonialModal.jsx';
 import RequestTestimonial from './RequestTestimonial.jsx';
-import { setTestimonialStatus, deleteTestimonial } from '../../lib/adminData.js';
+import { setTestimonialStatus, updateTestimonial, deleteTestimonial } from '../../lib/adminData.js';
 
 const BADGE = { pending: 'badge-pending', approved: 'badge-approved', archived: 'badge-archived' };
 
-export default function AllTestimonials({ items, options, onChange }) {
+export default function AllTestimonials({ items, options, moderationOn, onChange }) {
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(null);
   const [requesting, setRequesting] = useState(false);
+  const [preview, setPreview] = useState(null); // testimonial opened read-only
 
   async function act(id, fn) {
     setBusy(id);
@@ -22,7 +25,16 @@ export default function AllTestimonials({ items, options, onChange }) {
     }
   }
 
-  const shown = filter === 'all' ? items : items.filter((t) => t.status === filter);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter((t) => {
+      if (filter !== 'all' && t.status !== filter) return false;
+      if (!q) return true;
+      return `${t.person?.name || ''} ${t.person?.title || ''} ${t.projectName || ''} ${t.summary || ''}`
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [items, filter, query]);
 
   return (
     <div>
@@ -52,6 +64,15 @@ export default function AllTestimonials({ items, options, onChange }) {
         ))}
       </div>
 
+      <input
+        type="search"
+        class="filter-search"
+        style={{ margin: '0.75rem 0' }}
+        placeholder="Search testimonials…"
+        value={query}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+      />
+
       {shown.length === 0 && <p class="comment-meta">Nothing here.</p>}
 
       {shown.map((t) => (
@@ -59,7 +80,11 @@ export default function AllTestimonials({ items, options, onChange }) {
           <div class="row">
             <Avatar person={t.person} />
             <div class="row-main">
-              <strong>{t.person.name}</strong> <span class={`badge ${BADGE[t.status]}`}>{t.status}</span>
+              <button class="link-btn" style={{ fontWeight: 700 }} onClick={() => setPreview(t)}>
+                {t.person.name}
+              </button>{' '}
+              <span class={`badge ${BADGE[t.status]}`}>{t.status}</span>
+              {t.pinned && <span class="badge badge-approved" title="Shown first on the wall">pinned</span>}
               <div class="comment-meta">{t.person.title}{t.projectName ? ` · ${t.projectName}` : ''}</div>
               <p style={{ margin: '0.4rem 0' }}>{t.summary}</p>
             </div>
@@ -72,6 +97,10 @@ export default function AllTestimonials({ items, options, onChange }) {
                 <button class="btn btn-sm btn-secondary" disabled={busy === t.id}
                   onClick={() => act(t.id, () => setTestimonialStatus(t.id, 'archived'))}>Archive</button>
               )}
+              <button class="btn btn-sm btn-secondary" disabled={busy === t.id}
+                onClick={() => act(t.id, () => updateTestimonial(t.id, { pinned: !t.pinned }))}>
+                {t.pinned ? 'Unpin' : 'Pin'}
+              </button>
               <button class="btn btn-sm btn-secondary"
                 onClick={() => setEditing(editing === t.id ? null : t.id)}>
                 {editing === t.id ? 'Close' : 'Edit'}
@@ -91,6 +120,14 @@ export default function AllTestimonials({ items, options, onChange }) {
           )}
         </div>
       ))}
+
+      {preview && (
+        <TestimonialModal
+          group={{ person: preview.person, items: [preview] }}
+          moderationOn={moderationOn}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

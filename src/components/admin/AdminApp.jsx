@@ -2,14 +2,12 @@ import { useEffect, useState } from 'preact/hooks';
 import { isConfigured } from '../../lib/data.js';
 import { getSession, signIn, signOut, isAdmin } from '../../lib/adminData.js';
 import { fetchAllTestimonials, fetchFilterOptions, fetchSettings } from '../../lib/data.js';
-import PendingQueue from './PendingQueue.jsx';
 import AllTestimonials from './AllTestimonials.jsx';
 import CommentsModeration from './CommentsModeration.jsx';
 import SettingsManager from './SettingsManager.jsx';
 import StoriesManager from './StoriesManager.jsx';
 
 const TABS = [
-  ['pending', 'Pending'],
   ['all', 'All testimonials'],
   ['stories', 'Success stories'],
   ['comments', 'Comments'],
@@ -20,7 +18,7 @@ export default function AdminApp() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(null); // null = unknown, false = not an admin
-  const [tab, setTab] = useState('pending');
+  const [tab, setTab] = useState('all');
 
   // shared data
   const [testimonials, setTestimonials] = useState([]);
@@ -95,7 +93,7 @@ export default function AdminApp() {
       </div>
     );
 
-  const pending = testimonials.filter((t) => t.status === 'pending');
+  const moderationOn = settings.comment_moderation === 'on' || settings.comment_moderation === true;
 
   return (
     <div class="panel panel-wide">
@@ -119,18 +117,14 @@ export default function AdminApp() {
             onClick={() => setTab(key)}
           >
             {lbl}
-            {key === 'pending' && pending.length > 0 ? ` (${pending.length})` : ''}
           </button>
         ))}
       </div>
 
       {dataError && <div class="notice notice-error">{dataError}</div>}
 
-      {tab === 'pending' && (
-        <PendingQueue items={pending} options={options} onChange={reload} />
-      )}
       {tab === 'all' && (
-        <AllTestimonials items={testimonials} options={options} onChange={reload} />
+        <AllTestimonials items={testimonials} options={options} moderationOn={moderationOn} onChange={reload} />
       )}
       {tab === 'stories' && <StoriesManager options={options} />}
       {tab === 'comments' && <CommentsModeration testimonials={testimonials} />}

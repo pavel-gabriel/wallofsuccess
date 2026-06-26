@@ -43,7 +43,11 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.currentTarget.value }));
   const grouped = {};
-  for (const o of options) (grouped[o.category] ||= []).push(o);
+  // Seniority is derived from the team members, not picked on the story.
+  for (const o of options) {
+    if (o.category === 'seniority') continue;
+    (grouped[o.category] ||= []).push(o);
+  }
   const updateRow = (setter) => (i, key, val) => setter((rows) => rows.map((r, idx) => (idx === i ? { ...r, [key]: val } : r)));
   const updateMetric = updateRow(setMetrics);
   const updateContributor = updateRow(setContributors);

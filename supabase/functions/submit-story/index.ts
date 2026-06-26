@@ -105,6 +105,6 @@ Deno.serve(async (req) => {
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
     console.error('submit-story error', e);
-    return json({ error: 'Server error. Please try again.' }, 500);
+    return json({ error: (e instanceof Error && e.message) || 'Server error. Please try again.' }, 500);
   }
 });

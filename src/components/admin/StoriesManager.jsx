@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { fetchAllSuccessStories, updateStory, deleteStory } from '../../lib/adminData.js';
 import { callFunction, readFunctionError } from '../../lib/functions.js';
 import { exportStoryPdf, exportStoryPptx } from '../../lib/storyExport.js';
 import StoryEditor from './StoryEditor.jsx';
+import StoryModal from '../stories/StoryModal.jsx';
 
 const BADGE = { pending: 'badge-pending', approved: 'badge-approved', archived: 'badge-archived' };
 
 export default function StoriesManager({ options }) {
   const [stories, setStories] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(null); // id | 'new' | null
+  const [requesting, setRequesting] = useState(false);
+  const [preview, setPreview] = useState(null); // story opened read-only
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
 
@@ -35,20 +39,39 @@ export default function StoriesManager({ options }) {
     }
   }
 
-  const shown = filter === 'all' ? stories : stories.filter((s) => s.status === filter);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return stories.filter((s) => {
+      if (filter !== 'all' && s.status !== filter) return false;
+      if (!q) return true;
+      return `${s.title || ''} ${s.clientName || ''} ${s.clientAlias || ''} ${s.projectName || ''} ${s.industry || ''}`
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [stories, filter, query]);
 
   return (
     <div>
       <div class="row" style={{ borderBottom: '1px solid var(--line)', paddingBottom: '0.75rem' }}>
         <div class="row-main">
-          <StoryInvite />
+          <strong>Success stories</strong>
+          <div class="comment-meta">Create, edit and publish stories, or invite someone to add one.</div>
         </div>
         <div class="row-actions">
+          <button class="btn btn-sm btn-secondary" onClick={() => setRequesting((v) => !v)}>
+            {requesting ? 'Close' : '+ Request story'}
+          </button>
           <button class="btn btn-sm" onClick={() => setEditing(editing === 'new' ? null : 'new')}>
             {editing === 'new' ? 'Close' : '+ New story'}
           </button>
         </div>
       </div>
+
+      {requesting && (
+        <div style={{ marginTop: '1rem' }}>
+          <StoryInvite />
+        </div>
+      )}
 
       {editing === 'new' && (
         <StoryEditor options={options} onCancel={() => setEditing(null)} onSaved={async () => { setEditing(null); await reload(); }} />
@@ -62,6 +85,15 @@ export default function StoriesManager({ options }) {
         ))}
       </div>
 
+      <input
+        type="search"
+        class="filter-search"
+        style={{ margin: '0.75rem 0' }}
+        placeholder="Search stories…"
+        value={query}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+      />
+
       <p class="comment-meta" style={{ marginTop: '0.5rem' }}>
         Stories appear on the public Success Stories page only when <strong>Published</strong> (approved&nbsp;+&nbsp;public).
       </p>
@@ -72,7 +104,8 @@ export default function StoriesManager({ options }) {
         <div key={s.id}>
           <div class="row">
             <div class="row-main">
-              <strong>{s.title}</strong> <span class={`badge ${BADGE[s.status]}`}>{s.status}</span>
+              <button class="link-btn" style={{ fontWeight: 700 }} onClick={() => setPreview(s)}>{s.title}</button>{' '}
+              <span class={`badge ${BADGE[s.status]}`}>{s.status}</span>
               {s.isPublic ? <span class="badge badge-approved" title="Visible publicly (anonymized)">public</span> : <span class="badge badge-archived">internal</span>}
               <div class="comment-meta">
                 {s.clientName || s.clientAlias || '—'}{s.industry ? ` · ${s.industry}` : ''}
@@ -102,6 +135,10 @@ export default function StoriesManager({ options }) {
           )}
         </div>
       ))}
+
+      {preview && (
+        <StoryModal group={{ key: preview.id, versions: [preview] }} onClose={() => setPreview(null)} />
+      )}
     </div>
   );
 }

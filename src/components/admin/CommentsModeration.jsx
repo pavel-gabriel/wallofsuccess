@@ -6,6 +6,7 @@ export default function CommentsModeration({ testimonials }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
 
   const nameById = {};
   for (const t of testimonials) nameById[t.id] = t.person?.name || t.summary?.slice(0, 30);
@@ -33,9 +34,27 @@ export default function CommentsModeration({ testimonials }) {
   if (error) return <div class="notice notice-error">{error}</div>;
   if (comments.length === 0) return <p class="comment-meta">No comments yet.</p>;
 
+  const q = query.trim().toLowerCase();
+  const shown = !q
+    ? comments
+    : comments.filter((c) =>
+        `${c.author_name || ''} ${c.body || ''} ${nameById[c.testimonial_id] || ''}`
+          .toLowerCase()
+          .includes(q),
+      );
+
   return (
     <div>
-      {comments.map((c) => (
+      <input
+        type="search"
+        class="filter-search"
+        style={{ marginBottom: '0.75rem' }}
+        placeholder="Search comments…"
+        value={query}
+        onInput={(e) => setQuery(e.currentTarget.value)}
+      />
+      {shown.length === 0 && <p class="comment-meta">No comments match your search.</p>}
+      {shown.map((c) => (
         <div class="row" key={c.id}>
           <div class="row-main">
             <strong>{c.author_name}</strong>{' '}
