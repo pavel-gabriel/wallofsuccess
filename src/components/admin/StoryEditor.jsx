@@ -42,6 +42,21 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
   }, []);
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.currentTarget.value }));
+
+  // Single visibility control over the (status, is_public) pair so they can't
+  // contradict: Draft / Published / Archived.
+  const visibility = f.is_public && f.status === 'approved'
+    ? 'published'
+    : f.status === 'archived'
+      ? 'archived'
+      : 'draft';
+  const setVisibility = (v) =>
+    setF((p) => ({
+      ...p,
+      status: v === 'published' ? 'approved' : v === 'archived' ? 'archived' : 'pending',
+      is_public: v === 'published',
+    }));
+
   const grouped = {};
   // Seniority is derived from the team members, not picked on the story.
   for (const o of options) {
@@ -153,17 +168,13 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
         </div>
       )}
 
-      <div class="grid-2">
-        <div class="field"><label>Status</label>
-          <select value={f.status} onChange={set('status')}>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-        <div class="field"><label>Public visibility</label>
-          <label class="checkline"><input type="checkbox" checked={f.is_public} onChange={(e) => setF((p) => ({ ...p, is_public: e.currentTarget.checked }))} /> Show in the public (anonymized) wall</label>
-        </div>
+      <div class="field">
+        <label>Visibility</label>
+        <select value={visibility} onChange={(e) => setVisibility(e.currentTarget.value)}>
+          <option value="draft">Draft — not shown publicly</option>
+          <option value="published">Published — live on the public wall (anonymized)</option>
+          <option value="archived">Archived — removed from the public wall</option>
+        </select>
       </div>
 
       {error && <div class="notice notice-error">{error}</div>}

@@ -25,6 +25,33 @@ export default function AllTestimonials({ items, options, moderationOn, onChange
     }
   }
 
+  const normName = (t) => (t.person?.name || '').trim().toLowerCase();
+
+  // How many testimonials each (normalized) name has — pinning only makes sense
+  // when a person appears more than once.
+  const nameCounts = useMemo(() => {
+    const m = new Map();
+    for (const t of items) {
+      const k = normName(t);
+      if (k) m.set(k, (m.get(k) || 0) + 1);
+    }
+    return m;
+  }, [items]);
+
+  // Pin one testimonial as the person's first; unpin any siblings sharing the
+  // name so there's exactly one pin per name.
+  async function togglePin(t) {
+    const next = !t.pinned;
+    const name = normName(t);
+    await act(t.id, async () => {
+      if (next) {
+        const siblings = items.filter((o) => o.id !== t.id && o.pinned && normName(o) === name);
+        await Promise.all(siblings.map((o) => updateTestimonial(o.id, { pinned: false })));
+      }
+      await updateTestimonial(t.id, { pinned: next });
+    });
+  }
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((t) => {
@@ -97,10 +124,12 @@ export default function AllTestimonials({ items, options, moderationOn, onChange
                 <button class="btn btn-sm btn-secondary" disabled={busy === t.id}
                   onClick={() => act(t.id, () => setTestimonialStatus(t.id, 'archived'))}>Archive</button>
               )}
-              <button class="btn btn-sm btn-secondary" disabled={busy === t.id}
-                onClick={() => act(t.id, () => updateTestimonial(t.id, { pinned: !t.pinned }))}>
-                {t.pinned ? 'Unpin' : 'Pin'}
-              </button>
+              {(nameCounts.get(normName(t)) || 0) > 1 && (
+                <button class="btn btn-sm btn-secondary" disabled={busy === t.id}
+                  onClick={() => togglePin(t)}>
+                  {t.pinned ? 'Unpin' : 'Pin'}
+                </button>
+              )}
               <button class="btn btn-sm btn-secondary"
                 onClick={() => setEditing(editing === t.id ? null : t.id)}>
                 {editing === t.id ? 'Close' : 'Edit'}
