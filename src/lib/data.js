@@ -50,6 +50,54 @@ export function distinctProjectCount(items) {
   ).size;
 }
 
+// Group success stories by project so repeated implementations of the same
+// project collapse into one card. `versions` are sorted latest-period first;
+// stories with no project name stay on their own. `{ key, versions: [...] }`.
+export function groupStoriesByProject(stories) {
+  const map = new Map();
+  for (const s of stories) {
+    const key = (s.projectName || '').trim().toLowerCase() || `__id_${s.id}`;
+    if (!map.has(key)) map.set(key, { key, versions: [] });
+    map.get(key).versions.push(s);
+  }
+  for (const g of map.values()) g.versions.sort(sortByPeriodDesc);
+  return Array.from(map.values());
+}
+
+// Latest period first (by end, then start), then newest created.
+export function sortByPeriodDesc(a, b) {
+  const ae = a.periodEnd || a.periodStart || '';
+  const be = b.periodEnd || b.periodStart || '';
+  if (ae !== be) return ae < be ? 1 : -1;
+  return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+}
+
+// "Seniority works on the members joined": fold each story contributor's
+// seniority/role (taken from that person's approved testimonials, matched by
+// name) into the story's tag set, so the shared applyFilters narrows stories by
+// their team. Returns new story objects with augmented `tags`.
+const MEMBER_TAG_CATEGORIES = new Set(['seniority', 'role']);
+export function augmentStoriesWithMemberTags(stories, testimonials) {
+  const byName = new Map(); // normalized name -> Map(tagId -> tag)
+  for (const t of testimonials || []) {
+    const name = (t.person?.name || '').trim().toLowerCase();
+    if (!name) continue;
+    let m = byName.get(name);
+    if (!m) { m = new Map(); byName.set(name, m); }
+    for (const tag of t.tags || []) {
+      if (tag && MEMBER_TAG_CATEGORIES.has(tag.category)) m.set(tag.id, tag);
+    }
+  }
+  return (stories || []).map((s) => {
+    const merged = new Map((s.tags || []).map((tag) => [tag.id, tag]));
+    for (const c of s.contributors || []) {
+      const m = byName.get((c.name || '').trim().toLowerCase());
+      if (m) for (const [id, tag] of m) merged.set(id, tag);
+    }
+    return { ...s, tags: [...merged.values()] };
+  });
+}
+
 // Returns testimonials whose tags satisfy the active filter set.
 // AND across categories, OR within a category.
 export function applyFilters(testimonials, active) {

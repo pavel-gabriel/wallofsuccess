@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'preact/hooks';
 import Avatar from '../Avatar.jsx';
 import TestimonialModal from '../TestimonialModal.jsx';
-import { renderMarkdown } from '../../lib/util.js';
+import { renderMarkdown, formatPeriod } from '../../lib/util.js';
 import { fetchTestimonialsByProject } from '../../lib/data.js';
 import { exportStoryPdf, exportStoryPptx } from '../../lib/storyExport.js';
 
 const PER_PAGE = 4;
 
-export default function StoryModal({ story, onClose }) {
+export default function StoryModal({ group, onClose }) {
+  const versions = group?.versions || [];
+  const [selected, setSelected] = useState(0);
   const [people, setPeople] = useState([]);
   const [page, setPage] = useState(0);
   const [openGroup, setOpenGroup] = useState(null);
+  const story = versions[selected];
+
+  // Reset to the latest version whenever a different project opens.
+  useEffect(() => setSelected(0), [group?.key]);
 
   useEffect(() => {
     // Let the nested testimonial modal own Escape while it is open.
@@ -23,19 +29,21 @@ export default function StoryModal({ story, onClose }) {
     };
   }, [onClose, openGroup]);
 
+  // Reload the people who worked on the selected version — only testimonials
+  // whose period sits inside that version's period.
   useEffect(() => {
     let alive = true;
     setPeople([]);
     setPage(0);
     if (story?.projectName) {
-      fetchTestimonialsByProject(story.projectName)
+      fetchTestimonialsByProject(story.projectName, { start: story.periodStart, end: story.periodEnd })
         .then((t) => alive && setPeople(t))
         .catch(() => alive && setPeople([]));
     }
     return () => {
       alive = false;
     };
-  }, [story?.projectName]);
+  }, [story?.projectName, story?.periodStart, story?.periodEnd]);
 
   if (!story) return null;
   const client = story.clientName || story.clientAlias || 'Client';
@@ -56,11 +64,28 @@ export default function StoryModal({ story, onClose }) {
             <div class="sub">
               {client}
               {story.industry ? ` · ${story.industry}` : ''}
-              {story.duration ? ` · ${story.duration}` : ''}
+              {formatPeriod(story.periodStart, story.periodEnd)
+                ? ` · ${formatPeriod(story.periodStart, story.periodEnd)}`
+                : ''}
             </div>
           </div>
           <button class="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
+
+        {versions.length > 1 && (
+          <div class="story-versions">
+            <span class="comment-meta">Implementation:</span>
+            {versions.map((v, i) => (
+              <button
+                key={v.id}
+                class={`btn btn-sm ${i === selected ? '' : 'btn-secondary'}`}
+                onClick={() => setSelected(i)}
+              >
+                {formatPeriod(v.periodStart, v.periodEnd) || `Version ${i + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div class="modal-body">
           {story.metrics?.length > 0 && (
