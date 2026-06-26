@@ -531,6 +531,7 @@ textarea { resize: vertical; min-height: 120px; }
 .story-export { display: flex; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap; }
 
 /* embedded "worked on this project" panel */
+.story-versions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 0 0; }
 .story-people { border-top: 1px solid var(--line); padding-top: 1rem; }
 .story-people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
 .story-person { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem 0.8rem; background: var(--card); }
@@ -545,6 +546,8 @@ textarea { resize: vertical; min-height: 120px; }
 .story-editor { border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; margin: 0.5rem 0 1rem; background: var(--sb-10); }
 .row-inline { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
 .row-inline input { flex: 1 1 120px; }
+.field-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.field-row .field { flex: 1 1 160px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
 .checkline { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; }
 .checkline input { width: auto; }

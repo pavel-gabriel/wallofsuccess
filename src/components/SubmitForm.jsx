@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { isConfigured, fetchFilterOptions, fetchProjectNames } from '../lib/data.js';
 import { callFunction, fileToDataUrl } from '../lib/functions.js';
+import { monthToDate, periodContains } from '../lib/util.js';
 
 const CATEGORY_LABELS = {
   cloud_provider: 'Cloud provider',
@@ -22,6 +23,8 @@ export default function SubmitForm() {
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
   const [project, setProject] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
   const [summary, setSummary] = useState('');
   const [body, setBody] = useState('');
   const [selectedTags, setSelectedTags] = useState(new Set());
@@ -66,6 +69,17 @@ export default function SubmitForm() {
     return g;
   }, [options]);
 
+  // Only offer projects whose period contains the period the person entered.
+  const projectNames = useMemo(() => {
+    const ts = monthToDate(periodStart);
+    const te = monthToDate(periodEnd);
+    const names = new Set();
+    for (const sp of storyProjects) {
+      if (periodContains(sp.periodStart, sp.periodEnd, ts, te)) names.add(sp.name);
+    }
+    return [...names].sort();
+  }, [storyProjects, periodStart, periodEnd]);
+
   function toggleTag(id) {
     setSelectedTags((prev) => {
       const next = new Set(prev);
@@ -95,6 +109,8 @@ export default function SubmitForm() {
         name: name.trim(),
         title: title.trim(),
         project_name: project.trim(),
+        period_start: monthToDate(periodStart),
+        period_end: monthToDate(periodEnd),
         summary: summary.trim(),
         body: body.trim(),
         tag_ids: Array.from(selectedTags),
@@ -154,11 +170,21 @@ export default function SubmitForm() {
           <label>Role / title <span class="hint">(e.g. Senior Cloud Engineer)</span></label>
           <input type="text" value={title} onInput={(e) => setTitle(e.currentTarget.value)} />
         </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Worked from <span class="hint">(month)</span></label>
+            <input type="month" value={periodStart} onInput={(e) => setPeriodStart(e.currentTarget.value)} />
+          </div>
+          <div class="field">
+            <label>Worked until <span class="hint">(month)</span></label>
+            <input type="month" value={periodEnd} onInput={(e) => setPeriodEnd(e.currentTarget.value)} />
+          </div>
+        </div>
         <div class="field">
-          <label>Project <span class="hint">(pick the project if it's already a story, or type your own)</span></label>
+          <label>Project <span class="hint">(pick a matching project story, or type your own)</span></label>
           <input type="text" list="sf-story-projects" value={project} onInput={(e) => setProject(e.currentTarget.value)} />
           <datalist id="sf-story-projects">
-            {storyProjects.map((p) => <option value={p} key={p} />)}
+            {projectNames.map((p) => <option value={p} key={p} />)}
           </datalist>
         </div>
         <div class="field">

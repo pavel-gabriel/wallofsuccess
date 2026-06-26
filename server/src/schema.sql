@@ -25,6 +25,9 @@ create table if not exists testimonials (
   id uuid primary key default gen_random_uuid(),
   person_id uuid not null references people (id) on delete cascade,
   project_name text default '',
+  period_start date,                  -- first month worked on the project
+  period_end date,                    -- last month worked on the project
+  pinned boolean not null default false,  -- show this one first for the person
   summary text not null,
   body text not null default '',
   status text not null default 'pending'
@@ -34,6 +37,10 @@ create table if not exists testimonials (
 );
 create index if not exists testimonials_status_idx on testimonials (status);
 create index if not exists testimonials_person_idx on testimonials (person_id);
+-- Idempotent adds for databases created before the period/pin columns existed.
+alter table testimonials add column if not exists period_start date;
+alter table testimonials add column if not exists period_end date;
+alter table testimonials add column if not exists pinned boolean not null default false;
 
 create table if not exists filter_options (
   id uuid primary key default gen_random_uuid(),
@@ -84,6 +91,8 @@ create table if not exists success_stories (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   project_name text default '',       -- link key to testimonials.project_name
+  period_start date,                  -- first month of this implementation/version
+  period_end date,                    -- last month of this implementation/version
   client_name text default '',        -- full name, internal only
   client_alias text default '',       -- public-safe label, e.g. "Tier-1 EU bank"
   industry text default '',
@@ -101,6 +110,8 @@ create table if not exists success_stories (
 create index if not exists stories_status_idx on success_stories (status);
 -- Idempotent add for databases created before project_name existed.
 alter table success_stories add column if not exists project_name text default '';
+alter table success_stories add column if not exists period_start date;
+alter table success_stories add column if not exists period_end date;
 
 create table if not exists story_metrics (
   id uuid primary key default gen_random_uuid(),

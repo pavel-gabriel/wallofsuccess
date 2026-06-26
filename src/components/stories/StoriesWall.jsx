@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { isConfigured, fetchSuccessStories, fetchFilterOptions, applyFilters } from '../../lib/data.js';
+import {
+  isConfigured,
+  fetchSuccessStories,
+  fetchFilterOptions,
+  fetchApprovedTestimonials,
+  applyFilters,
+  augmentStoriesWithMemberTags,
+  groupStoriesByProject,
+} from '../../lib/data.js';
 import FilterBar from '../FilterBar.jsx';
 import StoryCard from './StoryCard.jsx';
 import StoryModal from './StoryModal.jsx';
 
 export default function StoriesWall() {
   const [stories, setStories] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [options, setOptions] = useState([]);
   const [active, setActive] = useState({});
   const [query, setQuery] = useState('');
@@ -20,24 +29,38 @@ export default function StoriesWall() {
       setLoading(false);
       return;
     }
-    Promise.all([fetchSuccessStories(), fetchFilterOptions()])
-      .then(([s, o]) => {
+    // Testimonials are loaded too so the Seniority/Role filter can match on the
+    // stories' team members (see augmentStoriesWithMemberTags).
+    Promise.all([
+      fetchSuccessStories(),
+      fetchFilterOptions(),
+      fetchApprovedTestimonials().catch(() => []),
+    ])
+      .then(([s, o, t]) => {
         setStories(s);
         setOptions(o);
+        setTestimonials(t);
       })
       .catch((e) => setError(e.message || 'Failed to load.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(() => applyFilters(stories, active), [stories, active]);
+  const augmented = useMemo(
+    () => augmentStoriesWithMemberTags(stories, testimonials),
+    [stories, testimonials],
+  );
+  const filtered = useMemo(() => applyFilters(augmented, active), [augmented, active]);
   const searched = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return filtered;
     return filtered.filter((s) =>
-      `${s.title} ${s.clientAlias || ''} ${s.industry || ''}`.toLowerCase().includes(q)
+      `${s.title} ${s.clientAlias || ''} ${s.industry || ''} ${s.projectName || ''}`
+        .toLowerCase()
+        .includes(q)
     );
   }, [filtered, query]);
-  const visible = searched.slice(0, page * PAGE_SIZE);
+  const groups = useMemo(() => groupStoriesByProject(searched), [searched]);
+  const visible = groups.slice(0, page * PAGE_SIZE);
 
   useEffect(() => {
     setPage(1);
@@ -73,34 +96,34 @@ export default function StoriesWall() {
         active={active}
         onToggle={toggle}
         onClear={clear}
-        resultCount={searched.length}
+        resultCount={groups.length}
         query={query}
         onQuery={setQuery}
         noun={{ one: 'story', other: 'stories' }}
       />
 
-      {searched.length === 0 ? (
+      {groups.length === 0 ? (
         <div class="empty-state">
           <p>No success stories match your filters yet.</p>
         </div>
       ) : (
         <>
           <div class="story-grid">
-            {visible.map((s) => (
-              <StoryCard key={s.id} story={s} onOpen={setOpen} />
+            {visible.map((g) => (
+              <StoryCard key={g.key} group={g} onOpen={setOpen} />
             ))}
           </div>
-          {visible.length < searched.length && (
+          {visible.length < groups.length && (
             <div class="load-more">
               <button class="btn btn-secondary" onClick={() => setPage((p) => p + 1)}>
-                Load more ({searched.length - visible.length} more)
+                Load more ({groups.length - visible.length} more)
               </button>
             </div>
           )}
         </>
       )}
 
-      {open && <StoryModal story={open} onClose={() => setOpen(null)} />}
+      {open && <StoryModal group={open} onClose={() => setOpen(null)} />}
     </div>
   );
 }

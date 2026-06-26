@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { isConfigured } from '../../lib/data.js';
-import { getSession, signIn, signOut } from '../../lib/adminData.js';
+import { getSession, signIn, signOut, isAdmin } from '../../lib/adminData.js';
 import { fetchAllTestimonials, fetchFilterOptions, fetchSettings } from '../../lib/data.js';
 import PendingQueue from './PendingQueue.jsx';
 import AllTestimonials from './AllTestimonials.jsx';
 import CommentsModeration from './CommentsModeration.jsx';
-import FilterOptionsManager from './FilterOptionsManager.jsx';
 import SettingsManager from './SettingsManager.jsx';
-import RequestTestimonial from './RequestTestimonial.jsx';
 import StoriesManager from './StoriesManager.jsx';
 
 const TABS = [
@@ -15,14 +13,13 @@ const TABS = [
   ['all', 'All testimonials'],
   ['stories', 'Success stories'],
   ['comments', 'Comments'],
-  ['request', 'Request testimonial'],
-  ['filters', 'Filter options'],
   ['settings', 'Settings'],
 ];
 
 export default function AdminApp() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [authorized, setAuthorized] = useState(null); // null = unknown, false = not an admin
   const [tab, setTab] = useState('pending');
 
   // shared data
@@ -58,8 +55,20 @@ export default function AdminApp() {
   }
 
   useEffect(() => {
-    if (session) reload();
+    if (!session) return;
+    let alive = true;
+    isAdmin()
+      .then((ok) => alive && setAuthorized(ok))
+      .catch(() => alive && setAuthorized(false));
+    reload();
+    return () => { alive = false; };
   }, [session]);
+
+  async function handleSignOut() {
+    await signOut();
+    setAuthorized(null);
+    setSession(null);
+  }
 
   if (!isConfigured)
     return (
@@ -73,6 +82,19 @@ export default function AdminApp() {
   if (checking) return <div class="panel"><p>Checking session…</p></div>;
   if (!session) return <LoginForm onLogin={setSession} />;
 
+  if (authorized === null) return <div class="panel"><p>Checking access…</p></div>;
+  if (authorized === false)
+    return (
+      <div class="panel" style={{ maxWidth: '480px' }}>
+        <h2>No admin access</h2>
+        <div class="notice notice-error">
+          You’re signed in as <strong>{session.user?.email}</strong>, but this account isn’t an
+          administrator. Ask an existing admin to grant access, then sign in again.
+        </div>
+        <button class="btn btn-sm btn-secondary" onClick={handleSignOut}>Sign out</button>
+      </div>
+    );
+
   const pending = testimonials.filter((t) => t.status === 'pending');
 
   return (
@@ -83,7 +105,7 @@ export default function AdminApp() {
           <div class="comment-meta">{session.user?.email}</div>
         </div>
         <div class="row-actions">
-          <button class="btn btn-sm btn-secondary" onClick={async () => { await signOut(); setSession(null); }}>
+          <button class="btn btn-sm btn-secondary" onClick={handleSignOut}>
             Sign out
           </button>
         </div>
@@ -112,9 +134,7 @@ export default function AdminApp() {
       )}
       {tab === 'stories' && <StoriesManager options={options} />}
       {tab === 'comments' && <CommentsModeration testimonials={testimonials} />}
-      {tab === 'request' && <RequestTestimonial />}
-      {tab === 'filters' && <FilterOptionsManager options={options} onChange={reload} />}
-      {tab === 'settings' && <SettingsManager settings={settings} onChange={reload} />}
+      {tab === 'settings' && <SettingsManager settings={settings} options={options} onChange={reload} />}
     </div>
   );
 }

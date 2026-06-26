@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { createStory, updateStory, setStoryChildren, fetchAdminProjectNames } from '../../lib/adminData.js';
+import { toMonthInput, monthToDate } from '../../lib/util.js';
 
 const CATEGORY_LABELS = {
   cloud_provider: 'Cloud provider', technology: 'Technology', domain: 'Domain',
@@ -12,6 +13,8 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
   const [f, setF] = useState({
     title: story?.title || '',
     project_name: story?.projectName || '',
+    period_start: toMonthInput(story?.periodStart),
+    period_end: toMonthInput(story?.periodEnd),
     client_name: story?.clientName || '',
     client_alias: story?.clientAlias || '',
     industry: story?.industry || '',
@@ -60,7 +63,12 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
     }
     setBusy(true);
     setError('');
-    const base = { ...f, is_public: Boolean(f.is_public) };
+    const base = {
+      ...f,
+      is_public: Boolean(f.is_public),
+      period_start: monthToDate(f.period_start),
+      period_end: monthToDate(f.period_end),
+    };
     const children = {
       metrics: metrics.filter((m) => m.label || m.value),
       contributors: contributors.filter((c) => c.name || c.role || c.contribution),
@@ -94,6 +102,8 @@ export default function StoryEditor({ story, options = [], onCancel, onSaved }) 
         <div class="field"><label>Client alias <span class="hint">(public)</span></label><input type="text" value={f.client_alias} onInput={set('client_alias')} /></div>
         <div class="field"><label>Industry</label><input type="text" value={f.industry} onInput={set('industry')} /></div>
         <div class="field"><label>Duration</label><input type="text" value={f.duration} onInput={set('duration')} /></div>
+        <div class="field"><label>Period start <span class="hint">(month)</span></label><input type="month" value={f.period_start} onInput={set('period_start')} /></div>
+        <div class="field"><label>Period end <span class="hint">(month)</span></label><input type="month" value={f.period_end} onInput={set('period_end')} /></div>
       </div>
       <div class="field"><label>Summary</label><textarea value={f.summary} style={{ minHeight: '54px' }} onInput={set('summary')} /></div>
       <div class="field"><label>Challenge</label><textarea value={f.challenge} onInput={set('challenge')} /></div>

@@ -1,18 +1,26 @@
-// A project/client success-story card. Public cards show the client alias;
-// admin/internal views may also carry the real clientName.
-export default function StoryCard({ story, onOpen }) {
+import { formatPeriod, countLabel } from '../../lib/util.js';
+
+// A project/client success-story card. `group` = { versions: [...] } sorted
+// latest-period first; the card shows the latest implementation and a badge
+// when a project has several. Public cards show the client alias; admin views
+// may also carry the real clientName.
+export default function StoryCard({ group, onOpen }) {
+  const story = group.versions[0];
   const headline = story.metrics?.[0];
+  const period = formatPeriod(story.periodStart, story.periodEnd);
+  const implementations = countLabel(group.versions.length, 'implementations');
   return (
     <article
       class="story-card"
-      onClick={() => onOpen(story)}
+      onClick={() => onOpen(group)}
       tabIndex={0}
       role="button"
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(story)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen(group)}
     >
       <div class="story-card-top">
         {story.industry && <span class="story-industry">{story.industry}</span>}
-        {story.duration && <span class="story-duration">{story.duration}</span>}
+        {period && <span class="story-duration">{period}</span>}
+        {implementations && <span class="story-duration">{implementations}</span>}
       </div>
       <h3 class="story-title">{story.title}</h3>
       <div class="story-client">
