@@ -25,8 +25,8 @@ const wrap = (fn) => (req, res) => fn(req, res).catch((e) => {
 
 // --- shaped testimonial query --------------------------------------------
 const TESTIMONIAL_SELECT = `
-  select t.id, t.person_id, t.project_name, t.summary, t.body, t.status,
-         t.created_at, t.approved_at,
+  select t.id, t.person_id, t.project_name, t.period_start, t.period_end, t.pinned,
+         t.summary, t.body, t.status, t.created_at, t.approved_at,
          json_build_object('id', p.id, 'name', p.name, 'title', p.title, 'photo_url', p.photo_url) as person,
          coalesce(
            json_agg(json_build_object('id', fo.id, 'category', fo.category, 'value', fo.value))
@@ -59,6 +59,8 @@ function shapeStory(s, { full }) {
     id: s.id,
     title: s.title,
     projectName: s.project_name,
+    periodStart: s.period_start,
+    periodEnd: s.period_end,
     clientAlias: s.client_alias,
     industry: s.industry,
     summary: s.summary,
@@ -126,11 +128,23 @@ app.get('/healthz', wrap(async (_req, res) => {
 // ======================= PUBLIC API =======================
 app.get('/api/testimonials', wrap(async (req, res) => {
   const project = String(req.query.project || '').trim();
+  const start = String(req.query.start || '').trim();
+  const end = String(req.query.end || '').trim();
   const params = [];
   let where = `where t.status = 'approved'`;
   if (project) {
     params.push(project);
     where += ` and lower(t.project_name) = lower($${params.length})`;
+  }
+  // Containment: only testimonials whose period sits inside the given story
+  // period (NULL testimonial bounds are permissive).
+  if (start) {
+    params.push(start);
+    where += ` and (t.period_start is null or t.period_start >= $${params.length})`;
+  }
+  if (end) {
+    params.push(end);
+    where += ` and (t.period_end is null or t.period_end <= $${params.length})`;
   }
   const { rows } = await query(
     `${TESTIMONIAL_SELECT} ${where} ${TESTIMONIAL_GROUP} order by t.approved_at desc nulls last`,
@@ -156,18 +170,25 @@ app.get('/api/success-stories/:id', wrap(async (req, res) => {
   res.json(shapeStory(rows[0], { full: false }));
 }));
 
-// Distinct project names for the cross-link dropdowns (public scope).
+// Distinct project names for the cross-link dropdowns (public scope). Story
+// projects carry their period(s) so the testimonial form can offer only the
+// projects whose period contains the testimonial's period.
 app.get('/api/project-names', wrap(async (_req, res) => {
   const stories = await query(
-    `select distinct project_name from success_stories
-       where status = 'approved' and is_public and coalesce(project_name,'') <> '' order by project_name`
+    `select distinct project_name, period_start, period_end from success_stories
+       where status = 'approved' and is_public and coalesce(project_name,'') <> ''
+       order by project_name`
   );
   const tms = await query(
     `select distinct project_name from testimonials
        where status = 'approved' and coalesce(project_name,'') <> '' order by project_name`
   );
   res.json({
-    storyProjects: stories.rows.map((r) => r.project_name),
+    storyProjects: stories.rows.map((r) => ({
+      name: r.project_name,
+      periodStart: r.period_start,
+      periodEnd: r.period_end,
+    })),
     testimonialProjects: tms.rows.map((r) => r.project_name),
   });
 }));
@@ -237,6 +258,8 @@ app.post('/api/fn/submit-testimonial', wrap(async (req, res) => {
     const name = String(req.body.name || '').trim().slice(0, 120);
     const title = String(req.body.title || '').trim().slice(0, 160);
     const project = String(req.body.project_name || '').trim().slice(0, 160);
+    const periodStart = req.body.period_start || null;
+    const periodEnd = req.body.period_end || null;
     const summary = String(req.body.summary || '').trim().slice(0, 400);
     const body = String(req.body.body || '').trim().slice(0, 20000);
     const tagIds = Array.isArray(req.body.tag_ids) ? req.body.tag_ids.map(String) : [];
@@ -259,9 +282,9 @@ app.post('/api/fn/submit-testimonial', wrap(async (req, res) => {
         [name, title, photoUrl]
       )).rows[0];
       const testimonial = (await client.query(
-        `insert into testimonials (person_id, project_name, summary, body, status)
-         values ($1, $2, $3, $4, 'pending') returning id`,
-        [person.id, project, summary, body]
+        `insert into testimonials (person_id, project_name, period_start, period_end, summary, body, status)
+         values ($1, $2, $3, $4, $5, $6, 'pending') returning id`,
+        [person.id, project, periodStart, periodEnd, summary, body]
       )).rows[0];
       if (tagIds.length) {
         const valid = (await client.query('select id from filter_options where id = any($1::uuid[])', [tagIds])).rows;
@@ -354,6 +377,8 @@ app.post('/api/fn/submit-story', wrap(async (req, res) => {
     const vals = [
       title,
       String(f.project_name || '').trim().slice(0, 200),
+      f.period_start || null,
+      f.period_end || null,
       String(f.client_name || '').trim().slice(0, 200),
       String(f.client_alias || '').trim().slice(0, 200),
       String(f.industry || '').trim().slice(0, 120),
@@ -368,8 +393,8 @@ app.post('/api/fn/submit-story', wrap(async (req, res) => {
       await client.query('begin');
       const sid = (await client.query(
         `insert into success_stories
-           (title, project_name, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',false) returning id`,
+           (title, project_name, period_start, period_end, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending',false) returning id`,
         vals
       )).rows[0].id;
       await insertStoryMetrics(client, sid, f.metrics);
@@ -473,12 +498,13 @@ admin.get('/testimonials', wrap(async (_req, res) => {
 }));
 
 admin.patch('/testimonials/:id', wrap(async (req, res) => {
-  const allowed = ['status', 'summary', 'body', 'project_name'];
+  const allowed = ['status', 'summary', 'body', 'project_name', 'period_start', 'period_end', 'pinned'];
   const sets = [];
   const vals = [];
   for (const k of allowed) {
     if (k in req.body) {
-      vals.push(req.body[k]);
+      const isDate = k === 'period_start' || k === 'period_end';
+      vals.push(isDate && !req.body[k] ? null : req.body[k]);
       sets.push(`${k} = $${vals.length}`);
     }
   }
@@ -583,13 +609,18 @@ admin.put('/settings/:key', wrap(async (req, res) => {
 // Distinct project names across ALL stories + testimonials (admin scope).
 admin.get('/project-names', wrap(async (_req, res) => {
   const stories = await query(
-    `select distinct project_name from success_stories where coalesce(project_name,'') <> '' order by project_name`
+    `select distinct project_name, period_start, period_end from success_stories
+       where coalesce(project_name,'') <> '' order by project_name`
   );
   const tms = await query(
     `select distinct project_name from testimonials where coalesce(project_name,'') <> '' order by project_name`
   );
   res.json({
-    storyProjects: stories.rows.map((r) => r.project_name),
+    storyProjects: stories.rows.map((r) => ({
+      name: r.project_name,
+      periodStart: r.period_start,
+      periodEnd: r.period_end,
+    })),
     testimonialProjects: tms.rows.map((r) => r.project_name),
   });
 }));
@@ -614,11 +645,13 @@ admin.post('/success-stories', wrap(async (req, res) => {
     await client.query('begin');
     const sid = (await client.query(
       `insert into success_stories
-         (title, project_name, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+         (title, project_name, period_start, period_end, client_name, client_alias, industry, summary, challenge, solution, results, duration, status, is_public)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
       [
         String(f.title).trim().slice(0, 200),
         String(f.project_name || '').trim().slice(0, 200),
+        f.period_start || null,
+        f.period_end || null,
         String(f.client_name || '').trim().slice(0, 200),
         String(f.client_alias || '').trim().slice(0, 200),
         String(f.industry || '').trim().slice(0, 120),
@@ -645,13 +678,14 @@ admin.post('/success-stories', wrap(async (req, res) => {
 }));
 
 admin.patch('/success-stories/:id', wrap(async (req, res) => {
-  const allowed = ['title', 'project_name', 'client_name', 'client_alias', 'industry', 'summary',
-    'challenge', 'solution', 'results', 'duration', 'status', 'is_public'];
+  const allowed = ['title', 'project_name', 'period_start', 'period_end', 'client_name', 'client_alias',
+    'industry', 'summary', 'challenge', 'solution', 'results', 'duration', 'status', 'is_public'];
   const sets = [];
   const vals = [];
   for (const k of allowed) {
     if (k in req.body) {
-      vals.push(req.body[k]);
+      const isDate = k === 'period_start' || k === 'period_end';
+      vals.push(isDate && !req.body[k] ? null : req.body[k]);
       sets.push(`${k} = $${vals.length}`);
     }
   }

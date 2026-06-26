@@ -9,6 +9,9 @@ function normalize(t) {
     id: t.id,
     personId: t.person_id,
     projectName: t.project_name,
+    periodStart: t.period_start,
+    periodEnd: t.period_end,
+    pinned: !!t.pinned,
     summary: t.summary,
     body: t.body,
     status: t.status,
@@ -35,9 +38,12 @@ export async function fetchSettings() {
 export async function fetchComments(testimonialId) {
   return (await api(`/testimonials/${testimonialId}/comments`)) || [];
 }
-export async function fetchTestimonialsByProject(project) {
+export async function fetchTestimonialsByProject(project, period) {
   if (!project) return [];
-  return ((await api(`/testimonials?project=${encodeURIComponent(project)}`)) || []).map(normalize);
+  const qs = new URLSearchParams({ project });
+  if (period?.start) qs.set('start', period.start);
+  if (period?.end) qs.set('end', period.end);
+  return ((await api(`/testimonials?${qs.toString()}`)) || []).map(normalize);
 }
 export async function fetchProjectNames() {
   return (await api('/project-names')) || { storyProjects: [], testimonialProjects: [] };

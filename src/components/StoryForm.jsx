@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { isConfigured, fetchFilterOptions, fetchProjectNames } from '../lib/data.js';
 import { callFunction } from '../lib/functions.js';
+import { monthToDate } from '../lib/util.js';
 
 const CATEGORY_LABELS = {
   cloud_provider: 'Cloud provider',
@@ -22,6 +23,8 @@ export default function StoryForm() {
     title: '', project_name: '', client_name: '', client_alias: '', industry: '', duration: '',
     summary: '', challenge: '', solution: '', results: '',
   });
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
   const [metrics, setMetrics] = useState([{ label: '', value: '' }]);
   const [contributors, setContributors] = useState([{ name: '', role: '', contribution: '' }]);
   const [tags, setTags] = useState(new Set());
@@ -94,6 +97,8 @@ export default function StoryForm() {
         action: 'submit',
         token,
         ...f,
+        period_start: monthToDate(periodStart),
+        period_end: monthToDate(periodEnd),
         metrics: metrics.filter((m) => m.label || m.value),
         contributors: contributors.filter((c) => c.name || c.role || c.contribution),
         tag_ids: Array.from(tags),
@@ -145,6 +150,12 @@ export default function StoryForm() {
           <input type="text" value={f.client_alias} onInput={set('client_alias')} /></div>
         <div class="field"><label>Industry</label>
           <input type="text" value={f.industry} onInput={set('industry')} /></div>
+        <div class="field-row">
+          <div class="field"><label>Period start <span class="hint">(month)</span></label>
+            <input type="month" value={periodStart} onInput={(e) => setPeriodStart(e.currentTarget.value)} /></div>
+          <div class="field"><label>Period end <span class="hint">(month)</span></label>
+            <input type="month" value={periodEnd} onInput={(e) => setPeriodEnd(e.currentTarget.value)} /></div>
+        </div>
         <div class="field"><label>Duration <span class="hint">(e.g. "8 months")</span></label>
           <input type="text" value={f.duration} onInput={set('duration')} /></div>
         <div class="field"><label>Summary <span class="hint">(one-line teaser)</span></label>

@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
       const name = String(payload.name || '').trim().slice(0, 120);
       const title = String(payload.title || '').trim().slice(0, 160);
       const project = String(payload.project_name || '').trim().slice(0, 160);
+      const periodStart = payload.period_start || null;
+      const periodEnd = payload.period_end || null;
       const summary = String(payload.summary || '').trim().slice(0, 400);
       const body = String(payload.body || '').trim().slice(0, 20000);
       const tagIds = Array.isArray(payload.tag_ids) ? payload.tag_ids.map(String) : [];
@@ -111,6 +113,8 @@ Deno.serve(async (req) => {
         .insert({
           person_id: personId,
           project_name: project,
+          period_start: periodStart,
+          period_end: periodEnd,
           summary,
           body,
           status: 'pending',

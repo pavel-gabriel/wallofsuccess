@@ -17,7 +17,8 @@ const supabase =
     : null;
 
 const SELECT_FULL = `
-  id, person_id, project_name, summary, body, status, created_at, approved_at,
+  id, person_id, project_name, period_start, period_end, pinned,
+  summary, body, status, created_at, approved_at,
   people:person_id ( id, name, title, photo_url ),
   testimonial_tags ( filter_options ( id, category, value ) )
 `;
@@ -27,6 +28,9 @@ function normalize(t) {
     id: t.id,
     personId: t.person_id,
     projectName: t.project_name,
+    periodStart: t.period_start,
+    periodEnd: t.period_end,
+    pinned: !!t.pinned,
     summary: t.summary,
     body: t.body,
     status: t.status,
@@ -86,14 +90,18 @@ export async function fetchComments(testimonialId) {
   if (error) throw error;
   return data || [];
 }
-export async function fetchTestimonialsByProject(project) {
+export async function fetchTestimonialsByProject(project, period) {
   if (!supabase || !project) return [];
-  const { data, error } = await supabase
+  let q = supabase
     .from('testimonials')
     .select(SELECT_FULL)
     .eq('status', 'approved')
-    .ilike('project_name', project)
-    .order('approved_at', { ascending: false });
+    .ilike('project_name', project);
+  // Containment: testimonial period must sit inside the story period (NULL
+  // testimonial bounds are permissive via the `or` clauses).
+  if (period?.start) q = q.or(`period_start.is.null,period_start.gte.${period.start}`);
+  if (period?.end) q = q.or(`period_end.is.null,period_end.lte.${period.end}`);
+  const { data, error } = await q.order('approved_at', { ascending: false });
   if (error) throw error;
   return (data || []).map(normalize);
 }
@@ -101,21 +109,34 @@ export async function fetchTestimonialsByProject(project) {
 function distinct(rows) {
   return [...new Set((rows || []).map((r) => (r.project_name || '').trim()).filter(Boolean))].sort();
 }
+// Story projects with their period(s) so the testimonial form can offer only
+// projects whose period contains the testimonial's period. One entry per
+// distinct (name, period) version.
+function distinctStoryProjects(rows) {
+  const seen = new Map();
+  for (const r of rows || []) {
+    const name = (r.project_name || '').trim();
+    if (!name) continue;
+    const key = `${name}|${r.period_start || ''}|${r.period_end || ''}`;
+    if (!seen.has(key)) seen.set(key, { name, periodStart: r.period_start, periodEnd: r.period_end });
+  }
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 export async function fetchProjectNames() {
   if (!supabase) return { storyProjects: [], testimonialProjects: [] };
   const [s, t] = await Promise.all([
-    supabase.from('public_success_stories').select('project_name'),
+    supabase.from('public_success_stories').select('project_name, period_start, period_end'),
     supabase.from('testimonials').select('project_name').eq('status', 'approved'),
   ]);
-  return { storyProjects: distinct(s.data), testimonialProjects: distinct(t.data) };
+  return { storyProjects: distinctStoryProjects(s.data), testimonialProjects: distinct(t.data) };
 }
 export async function fetchAdminProjectNames() {
   if (!supabase) return { storyProjects: [], testimonialProjects: [] };
   const [s, t] = await Promise.all([
-    supabase.from('success_stories').select('project_name'),
+    supabase.from('success_stories').select('project_name, period_start, period_end'),
     supabase.from('testimonials').select('project_name'),
   ]);
-  return { storyProjects: distinct(s.data), testimonialProjects: distinct(t.data) };
+  return { storyProjects: distinctStoryProjects(s.data), testimonialProjects: distinct(t.data) };
 }
 
 export async function postComment(testimonialId, { author_name, body }) {
@@ -234,6 +255,8 @@ function normalizePublicStory(s) {
     id: s.id,
     title: s.title,
     projectName: s.project_name,
+    periodStart: s.period_start,
+    periodEnd: s.period_end,
     clientAlias: s.client_alias,
     industry: s.industry,
     summary: s.summary,
@@ -254,6 +277,8 @@ function normalizeStoryRow(s) {
     id: s.id,
     title: s.title,
     projectName: s.project_name,
+    periodStart: s.period_start,
+    periodEnd: s.period_end,
     clientName: s.client_name,
     clientAlias: s.client_alias,
     industry: s.industry,
