@@ -144,6 +144,27 @@ export async function signIn(email, password) {
 export async function signOut() {
   if (supabase) await supabase.auth.signOut();
 }
+// True only when the signed-in user has a row in public.admins (checked via the
+// security-definer is_admin() function). A logged-in non-admin returns false so
+// the dashboard can show a clear "no access" message instead of empty tabs.
+export async function isAdmin() {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('is_admin');
+  if (error) return false;
+  return !!data;
+}
+export async function changePassword(currentPassword, newPassword) {
+  if (!supabase) throw new Error('Not configured.');
+  // Re-verify the current password first (updateUser alone doesn't require it).
+  const { data: u } = await supabase.auth.getUser();
+  const email = u?.user?.email;
+  if (email && currentPassword) {
+    const { error: reauthErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+    if (reauthErr) throw new Error('Current password is incorrect.');
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
 
 // --- admin mutations ------------------------------------------------------
 export async function setTestimonialStatus(id, status) {

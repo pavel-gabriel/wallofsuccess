@@ -1,15 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
 import StoriesWall from '../components/stories/StoriesWall.jsx';
-const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <Base title="Success Stories" description="Client project success stories — outcomes, metrics, and the teams behind them.">
   <header class="site-header" slot="header">
     <h1>Success Stories</h1>
     <p>Project outcomes delivered for our clients — for use in proposals and bids.</p>
-    <nav class="nav-links">
-      <a href={`${base}/`}>← The Wall of Fame</a>
-    </nav>
   </header>
 
   <StoriesWall client:load />

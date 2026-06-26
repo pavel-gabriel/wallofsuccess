@@ -71,6 +71,18 @@ export async function signIn(email, password) {
 export async function signOut() {
   clearToken();
 }
+// In API mode a valid token is only ever issued to an admin (login checks the
+// admins table), so a live session implies admin access.
+export async function isAdmin() {
+  return !!getToken();
+}
+export async function changePassword(currentPassword, newPassword) {
+  await api('/auth/password', {
+    method: 'POST',
+    auth: true,
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
+}
 
 // --- admin mutations ------------------------------------------------------
 export async function setTestimonialStatus(id, status) {

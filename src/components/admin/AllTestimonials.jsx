@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import Avatar from '../Avatar.jsx';
 import TestimonialEditor from './TestimonialEditor.jsx';
+import RequestTestimonial from './RequestTestimonial.jsx';
 import { setTestimonialStatus, deleteTestimonial } from '../../lib/adminData.js';
 
 const BADGE = { pending: 'badge-pending', approved: 'badge-approved', archived: 'badge-archived' };
@@ -9,6 +10,7 @@ export default function AllTestimonials({ items, options, onChange }) {
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState('all');
   const [busy, setBusy] = useState(null);
+  const [requesting, setRequesting] = useState(false);
 
   async function act(id, fn) {
     setBusy(id);
@@ -24,7 +26,25 @@ export default function AllTestimonials({ items, options, onChange }) {
 
   return (
     <div>
-      <div class="admin-tabs">
+      <div class="row" style={{ borderBottom: '1px solid var(--line)', paddingBottom: '0.75rem' }}>
+        <div class="row-main">
+          <strong>Testimonials</strong>
+          <div class="comment-meta">Review and edit testimonials, or invite someone to add one.</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-sm" onClick={() => setRequesting((v) => !v)}>
+            {requesting ? 'Close' : '+ Request testimonial'}
+          </button>
+        </div>
+      </div>
+
+      {requesting && (
+        <div style={{ marginTop: '1rem' }}>
+          <RequestTestimonial />
+        </div>
+      )}
+
+      <div class="admin-tabs" style={{ marginTop: '1rem' }}>
         {['all', 'approved', 'pending', 'archived'].map((f) => (
           <button key={f} class={`admin-tab ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>
             {f[0].toUpperCase() + f.slice(1)}

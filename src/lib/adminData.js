@@ -3,6 +3,8 @@ export {
   getSession,
   signIn,
   signOut,
+  isAdmin,
+  changePassword,
   setTestimonialStatus,
   updateTestimonial,
   updatePerson,

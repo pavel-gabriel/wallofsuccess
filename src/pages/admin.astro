@@ -1,14 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import AdminApp from '../components/admin/AdminApp.jsx';
-const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <Base title="Admin · Wall of Fame" description="Manage testimonials.">
   <header class="site-header" slot="header">
     <h1>Admin</h1>
-    <nav class="nav-links">
-      <a href={`${base}/`}>← Back to the Wall</a>
-    </nav>
   </header>
 
   <AdminApp client:only="preact" />

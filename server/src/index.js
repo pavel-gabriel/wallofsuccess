@@ -448,6 +448,21 @@ app.get('/api/auth/me', requireAdmin, (req, res) => {
   res.json({ user: { email: req.admin.email } });
 });
 
+app.post('/api/auth/password', requireAdmin, wrap(async (req, res) => {
+  const current = String(req.body.current_password || '');
+  const next = String(req.body.new_password || '');
+  if (next.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  }
+  const row = await one('select id, password_hash from admins where id = $1', [req.admin.sub]);
+  if (!row || !(await bcrypt.compare(current, row.password_hash))) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+  const hash = await bcrypt.hash(next, 10);
+  await query('update admins set password_hash = $1 where id = $2', [hash, row.id]);
+  res.json({ ok: true });
+}));
+
 // ======================= ADMIN API (JWT) =======================
 const admin = express.Router();
 admin.use(requireAdmin);
