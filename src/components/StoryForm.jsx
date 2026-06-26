@@ -68,7 +68,11 @@ export default function StoryForm() {
 
   const grouped = useMemo(() => {
     const g = {};
-    for (const o of options) (g[o.category] ||= []).push(o);
+    // Seniority is derived from the team members on the wall, not picked here.
+    for (const o of options) {
+      if (o.category === 'seniority') continue;
+      (g[o.category] ||= []).push(o);
+    }
     return g;
   }, [options]);
 

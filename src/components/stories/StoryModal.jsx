@@ -10,13 +10,18 @@ const PER_PAGE = 4;
 export default function StoryModal({ group, onClose }) {
   const versions = group?.versions || [];
   const [selected, setSelected] = useState(0);
+  const [winStart, setWinStart] = useState(0); // first version chip shown (window of 2)
   const [people, setPeople] = useState([]);
   const [page, setPage] = useState(0);
   const [openGroup, setOpenGroup] = useState(null);
   const story = versions[selected];
+  const WIN = 2;
 
   // Reset to the latest version whenever a different project opens.
-  useEffect(() => setSelected(0), [group?.key]);
+  useEffect(() => {
+    setSelected(0);
+    setWinStart(0);
+  }, [group?.key]);
 
   useEffect(() => {
     // Let the nested testimonial modal own Escape while it is open.
@@ -75,15 +80,34 @@ export default function StoryModal({ group, onClose }) {
         {versions.length > 1 && (
           <div class="story-versions">
             <span class="comment-meta">Implementation:</span>
-            {versions.map((v, i) => (
+            {versions.length > WIN && (
               <button
-                key={v.id}
-                class={`btn btn-sm ${i === selected ? '' : 'btn-secondary'}`}
-                onClick={() => setSelected(i)}
-              >
-                {formatPeriod(v.periodStart, v.periodEnd) || `Version ${i + 1}`}
-              </button>
-            ))}
+                class="btn btn-sm btn-secondary story-versions-arrow"
+                disabled={winStart === 0}
+                aria-label="Earlier implementations"
+                onClick={() => setWinStart((w) => Math.max(0, w - 1))}
+              >‹</button>
+            )}
+            {versions.slice(winStart, winStart + WIN).map((v, i) => {
+              const idx = winStart + i;
+              return (
+                <button
+                  key={v.id}
+                  class={`btn btn-sm ${idx === selected ? '' : 'btn-secondary'}`}
+                  onClick={() => setSelected(idx)}
+                >
+                  {formatPeriod(v.periodStart, v.periodEnd) || 'Timeframe NA'}
+                </button>
+              );
+            })}
+            {versions.length > WIN && (
+              <button
+                class="btn btn-sm btn-secondary story-versions-arrow"
+                disabled={winStart + WIN >= versions.length}
+                aria-label="Later implementations"
+                onClick={() => setWinStart((w) => Math.min(versions.length - WIN, w + 1))}
+              >›</button>
+            )}
           </div>
         )}
 
